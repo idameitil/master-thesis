@@ -1,0 +1,8 @@
+README.md
+bcr_models.egg-info/PKG-INFO
+bcr_models.egg-info/SOURCES.txt
+bcr_models.egg-info/dependency_links.txt
+bcr_models.egg-info/entry_points.txt
+bcr_models.egg-info/not-zip-safe
+bcr_models.egg-info/requires.txt
+bcr_models.egg-info/top_level.txt
