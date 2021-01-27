@@ -1,0 +1,15 @@
+>P1;model_pMHC
+structureX:model_pMHC::M::P::::
+GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEG-PEYWDGETRKVKAHSQTHRVDLGTLRGYYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQ-LRAYLEGTCVEWLRRYLENGKETL/GILGFVFTL/------------------------------------------------------------------------------------------------------------------------------------------/------------------------------------------------------------------------------------------------------------------------------------------*
+>P1;model_TCRA
+structureX:model_TCRA::A::A::::
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------/---------/---VEQSPQSLHVQEGDSTNFTCSFPSSNFY-------ALHWYRWE-TAKSPEALFVMTLNG----DEKK-K-GRISATL-N-TKEGYSYLYIKGSQPEDSATYLCAFDTNA-----------GKSTFGDGTTLTVKP/------------------------------------------------------------------------------------------------------------------------------------------*
+>P1;model_TCRB
+structureX:model_TCRB::B::B::::
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------/---------/------------------------------------------------------------------------------------------------------------------------------------------/-GITQSPKYLFRKEGQNVTLSCEQNLNHD------AMYWYRQDPGQGLRLIYYSQIVND----FQKG--DIAA-GYSVSREKKESFPLTVTSAQKNPTAFYLCASSIFGQRE--------------QYFGPGTRLTV-*
+>P1;2vlk
+structureX:2vlk.pdb::M::B::::
+GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEG-PEYWDGETRKVKAHSQTHRVDLGTLRGYYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQ-LRAYLEGTCVEWLRRYLENGKETL/GILGFVFTL/----EQSPQFLSIQEGENLTVYCNSSSV--------FSSLQWYRQE-PGEGPVLLVTVVT----GGEVKK-L-KRLTFQF-G-DARKDSSLHITAAQPGDTGLYLCAGAGS-----------QGNLIFGKGTKLSVKP/-GITQSPKYLFRKEGQNVTLSCEQNL------NHDAMYWYRQDPGQGLRLIYYSQIVNDFQ-------KGDIAEGYSVSREKKESFPLTVTSAQKNPTAFYLCASSSR--------------SSYEQYFGPGTRLTV-*
+>P1;model_pMHC_TCR
+sequence:model_pMHC_TCR::::::::
+GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEG-PEYWDGETRKVKAHSQTHRVDLGTLRGYYNQSEAGSHTVQRMYGCDVGSDWRFLRGYHQYAYDGKDYIALKEDLRSWTAADMAAQTTKHKWEAAHVAEQ-LRAYLEGTCVEWLRRYLENGKETL/GILGFVFTL/---VEQSPQSLHVQEGDSTNFTCSFPSSNFY-------ALHWYRWE-TAKSPEALFVMTLNG----DEKK-K-GRISATL-N-TKEGYSYLYIKGSQPEDSATYLCAFDTNA-----------GKSTFGDGTTLTVKP/-GITQSPKYLFRKEGQNVTLSCEQNLNHD------AMYWYRQDPGQGLRLIYYSQIVND----FQKG--DIAA-GYSVSREKKESFPLTVTSAQKNPTAFYLCASSIFGQRE--------------QYFGPGTRLTV-*
