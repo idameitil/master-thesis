@@ -37,21 +37,32 @@ def extract_seq_pdb(pdb_path):
         chains.append(chain.id.replace('????:', ''))
     return sequences, chains, total_length
 
-def run_foldx(model_path):
+def run_foldx(model_filename):
 
-    foldx_output_path = "/home/people/idamei/energy_calc_pipeline/foldx_output"
+    model_path = model_dir + model_filename
+
+    # Make output directory
+    foldx_output_dir = "/home/people/idamei/energy_calc_pipeline/foldx_output" \
+                        + model_filename + "_foldx"
+    subprocess.run(["mkdir"], foldx_output_path)
+
     # RepairPDB
-    repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false".format(model)
+    repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL \
+                        --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false --output-dir={}".format(model_path, foldx_output_dir)
     subprocess.run(repair_command.split(),
                         stdout=subprocess.PIPE, universal_newlines=True)
     
     # AnalyseComplex
-    analyse_command = "foldx --command=AnalyseComplex --pdb=" + model.replace(".pdb", "_Repair.pdb")
+    repaired_pdb_path = foldx_output_dir + model_filename.replace(".pdb", "_Repair.pdb")
+    analyse_command = "foldx --command=AnalyseComplex --pdb={} --output-dir{}".format(repaired_pdb_path, foldx_output_dir)
     subprocess.run(analyse_command.split(),
                         stdout=subprocess.PIPE, universal_newlines=True)
 
-def extract_foldx_energies(foldx_output_path):
-    foldx_output = open(foldx_output_path, "r")
+    return foldx_output_dir
+
+def extract_foldx_energies(foldx_output_dir, model_filename):
+    interaction_file_path = foldx_output_dir + "Interaction_" + model_filename.replace(".pdb", _Repair_AC.fxout)
+    foldx_output = open(interaction_file_path, "r")
     foldx_interaction_energies = dict()
     for line in foldx_output:
         if line.startswith("./"):
@@ -62,7 +73,11 @@ def extract_foldx_energies(foldx_output_path):
             foldx_interaction_energies[group1+group2] = float(interaction_energy)    
     return foldx_interaction_energies
 
-def run_rosetta(model):
+def run_rosetta(model_filename):
+
+    model_path = model_dir + model_filename
+    rosetta_output_dir = "/home/people/idamei/energy_calc_pipeline/rosetta_output" \
+                        + model_filename + "_rosetta"
     # Relaxation
     rosetta_relax_command = "relax.default.linuxgccrelease \
                              -fa_max_dis 9 \
@@ -80,9 +95,8 @@ def run_rosetta(model):
                              -out:suffix _bn15_calibrated \
                              -flip_HNQ \
                              -no_optH false \
-                             -s model_TCR-pMHC.pdb \
-                             -out:path:pdb /home/people/idamei/rosetta/amelie_rosetta/relax_output \
-                             -out:path:score /home/people/idamei/rosetta/amelie_rosetta/expeced_output"
+                             -s {} \
+                             -out:path {}\".format(model_path, )
     subprocess.run(rosetta_relax_command.split(),
                         stdout=subprocess.PIPE, universal_newlines=True)
     
@@ -90,15 +104,19 @@ def run_rosetta(model):
     rosetta_score_command = 
     subprocess.run(rosetta_score_command.split(),
                         stdout=subprocess.PIPE, universal_newlines=True)
+
+    return rosetta_output_dir
     
-def extract_rosetta_energies(rosetta_output_path)
+def extract_rosetta_energies(rosetta_output_path):
     
-def create_output(pdb_path, foldx_interaction_energies):
+def create_output(foldx_interaction_energies):
     # one-hot AA, M, P, TCR, foldx_MP, foldx_MA, foldx_MB, foldx_PA, foldx_PB, foldx_AB, 
     # Rosetta_total_energy, Rosetta_per_res_indiv_energies
+
+    model_path = model_dir + model_filename
     
     # Extract sequence from PDB
-    sequences, chains, total_length = extract_seq_pdb(pdb_path)
+    sequences, chains, total_length = extract_seq_pdb(model_path)
     
     # Create output_array
     output_array = np.empty(shape=(total_length,29))
@@ -120,35 +138,33 @@ def create_output(pdb_path, foldx_interaction_energies):
     
     return output_array
 
-def pipeline(model):
+def pipeline(model_filename):
     
     try:
-        # FoldX
-        run_foldx(model)
+        # Run FoldX
+        foldx_output_dir = run_foldx(model_filename)
     
         # Extract foldX energies
-        foldx_interaction_path = "/home/ida/foldx/Interaction_" + model.replace(".pdb", "_Repair_AC.fxout")
-        foldx_interaction_energies = extract_foldx_energies(foldx_interaction_path)
+        foldx_interaction_energies = extract_foldx_energies(foldx_output_dir, model_filename)
 
         # Rosetta
-        run_rosetta(model)
+        rosetta_output_dir = run_rosetta(model_filename)
 
         # Extract Rosetta energies
-        rosetta_output_path = 
-        extract_rosetta_energies(rosetta_output_path)
+        extract_rosetta_energies(rosetta_output_dir, model_filename)
 
         # Create output
-        model_path = "/home/ida/foldx/" + model
-        output_array = create_output(model_path, foldx_interaction_energies)
+        output_array = create_output(model_filename, foldx_interaction_energies)
 
     return output_array
 
     except error as err:
         print("Error: " err)
     
-
-# Calculate energy with FoldX
-models = ["5men_model_TCR-pMHC.pdb", "5nmf_model_TCR-pMHC.pdb", "3tkf_model_TCR-pMHC.pdb", "5isz_model_TCR-pMHC.pdb"]
+model_dir = "/home/people/idamei/modeling/models/"
+p = subprocess.Popen(["ls", fasta_directory],
+                        stdout=subprocess.PIPE, universal_newlines=True)
+models = p.communicate()[0].split()
 
 pool = mp.Pool(4)
 
