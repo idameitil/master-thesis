@@ -9,8 +9,6 @@ from joblib import Parallel, delayed
 import multiprocessing as mp
 from datetime import datetime
 
-### Functions ###
-
 def oneHot(residue):
     mapping = dict(zip("ACDEFGHIKLMNPQRSTVWY", range(20)))
     if residue in "ACDEFGHIKLMNPQRSTVWY":
@@ -107,9 +105,9 @@ def run_rosetta(model_filename):
 
     return rosetta_output_dir
     
-def extract_rosetta_energies(rosetta_output_path):
+def extract_rosetta_energies(rosetta_output_dir, model_filename):
     
-def create_output(foldx_interaction_energies):
+def create_output(model_filename, foldx_interaction_energies):
     # one-hot AA, M, P, TCR, foldx_MP, foldx_MA, foldx_MB, foldx_PA, foldx_PB, foldx_AB, 
     # Rosetta_total_energy, Rosetta_per_res_indiv_energies
 
@@ -147,19 +145,19 @@ def pipeline(model_filename):
         # Extract foldX energies
         foldx_interaction_energies = extract_foldx_energies(foldx_output_dir, model_filename)
 
-        # Rosetta
-        rosetta_output_dir = run_rosetta(model_filename)
+        # Run Rosetta
+        #rosetta_output_dir = run_rosetta(model_filename)
 
         # Extract Rosetta energies
-        extract_rosetta_energies(rosetta_output_dir, model_filename)
+        #extract_rosetta_energies(rosetta_output_dir, model_filename)
 
         # Create output
         output_array = create_output(model_filename, foldx_interaction_energies)
 
     return output_array
 
-    except error as err:
-        print("Error: " err)
+    except:
+        print("Error" + model_filename)
     
 model_dir = "/home/people/idamei/modeling/models/"
 p = subprocess.Popen(["ls", fasta_directory],
@@ -172,5 +170,8 @@ results = []
 results.append(pool.map(pipeline, [model for model in models]))
 
 pool.close()
+
+print(results)
+
 
 
