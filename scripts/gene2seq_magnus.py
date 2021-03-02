@@ -24,7 +24,7 @@ filein= args.filein
 data=pandas.read_csv(filein,   sep="\t")
 
 genes={}
-gene_sequences = SeqIO.parse(open('TCR_genes.fasta'),'fasta')
+gene_sequences = SeqIO.parse(open('/home/ida/master-thesis/data/TCR_genes.fasta'),'fasta')
 
 for fasta in gene_sequences:
     name, sequence = fasta.id, str(fasta.seq)
@@ -79,7 +79,7 @@ with open( filein, mode='r') as infile:
                     acta=rege2.group(1)
             try:
                 vseq=genes[(acti,actt,actf,actg,acta)]
-                print(rows[2], acti,actt,actf,actg,acta)
+                #print(rows[2], acti,actt,actf,actg,acta)
                 # print("Vseq = "+ vseq)
             except:
                 print("Vseq nono " + rows[2], str(acti),str(actt),str(actf),str(actg),str(acta))
@@ -106,7 +106,7 @@ with open( filein, mode='r') as infile:
                     acta=rege2.group(1)
             try:
                 jseq=genes[(acti,actt,actf,actg,acta)]
-                print(rows[3], acti,actt,actf,actg,acta)
+                #print(rows[3], acti,actt,actf,actg,acta)
                 # print("Jseq = "+ jseq)
             except:
                 pass
@@ -114,58 +114,58 @@ with open( filein, mode='r') as infile:
         else:
             pass
             print("Could not recognize J gene: {}".format(rows[3]))
-        #
-        # if re.match(r'^[ATGCU]+$', rows[1], flags=re.IGNORECASE):
-        #     seq =rows[1].lower()
-        #     chains = {}
-        #     #Make six different IgChains
-        #
-        #     # print("Checking frame "+str(reading_frame) )
-        #     # print('tmp seq is '+str(tmp_seq))
-        #     ig_chain =bcr.IgChain(seq, template_db=template_db, pdb_db=pdb_db)
-        #     #Score
-        #     try:
-        #         ig_chain.hmmsearch(*hmms)
-        #     except:
-        #         continue
-        #     ig_chain1=ig_chain
-        #
-        # else:
-        #     tmp_seq = rows[1]
-        #     #print('tmp seq is '+str(tmp_seq))
-        #     ig_chain1 =bcr.IgChain(tmp_seq, template_db=template_db, pdb_db=pdb_db)
-        #     #Score
-        #
-        # tmp_seq = vseq
-        # #print('tmp seq is '+str(tmp_seq))
-        # ig_chain2 =bcr.IgChain(tmp_seq, template_db=template_db, pdb_db=pdb_db)
-        # #Score
-        #
-        # tmp_seq = jseq
-        # # print('tmp seq is '+str(tmp_seq))
-        # ig_chain3 =bcr.IgChain(tmp_seq, template_db=template_db, pdb_db=pdb_db)
-        # #Score
-        #
-        # finalseq=ig_chain1.sequence
-        # rege1=re.match(r'(.+)C[^C]{0,5}', ig_chain2.sequence)
-        # if rege1:
-        #     chain2=rege1.group(1)
-        #     rege2=re.match(r'.{0,7}[FW](G.*)', ig_chain3.sequence)
-        #     if rege2:
-        #         chain3=rege2.group(1)
-        #         finalseq=chain2+finalseq+chain3
-        #
-        #
-        #         final_ig =bcr.IgChain(finalseq, template_db=template_db, pdb_db=pdb_db)
-        # #Score
-        #         try:
-        #             final_ig.hmmsearch(*hmms)
-        #
-        #         except Exception:
-        #             pass
-        #     try:
-        #         aligned_seq=final_ig.aligned_seq
-        #         print(aligned_seq)
-        #     except:
-        #         print("Error: Could not find aligned_seq")
-        #         pass
+
+        if re.match(r'^[ATGCU]+$', rows[1], flags=re.IGNORECASE):
+            seq =rows[1].lower()
+            chains = {}
+            #Make six different IgChains
+
+            # print("Checking frame "+str(reading_frame) )
+            # print('tmp seq is '+str(tmp_seq))
+            ig_chain =bcr.IgChain(seq, template_db=template_db, pdb_db=pdb_db)
+            #Score
+            try:
+                ig_chain.hmmsearch(*hmms)
+            except:
+                continue
+            ig_chain1=ig_chain
+
+        else:
+            tmp_seq = rows[1]
+            #print('tmp seq is '+str(tmp_seq))
+            ig_chain1 =bcr.IgChain(tmp_seq, template_db=template_db, pdb_db=pdb_db)
+            #Score
+
+        tmp_seq = vseq
+        #print('tmp seq is '+str(tmp_seq))
+        ig_chain2 =bcr.IgChain(tmp_seq, template_db=template_db, pdb_db=pdb_db)
+        #Score
+
+        tmp_seq = jseq
+        # print('tmp seq is '+str(tmp_seq))
+        ig_chain3 =bcr.IgChain(tmp_seq, template_db=template_db, pdb_db=pdb_db)
+        #Score
+
+        finalseq=ig_chain1.sequence
+        rege1=re.match(r'(.+)C[^C]{0,5}', ig_chain2.sequence)
+        if rege1:
+            chain2=rege1.group(1)
+            rege2=re.match(r'.{0,7}[FW](G.*)', ig_chain3.sequence)
+            if rege2:
+                chain3=rege2.group(1)
+                finalseq=chain2+finalseq+chain3
+
+
+                final_ig =bcr.IgChain(finalseq, template_db=template_db, pdb_db=pdb_db)
+        #Score
+                try:
+                    final_ig.hmmsearch(*hmms)
+
+                except Exception:
+                    pass
+            try:
+                aligned_seq=final_ig.aligned_seq
+                print(aligned_seq)
+            except:
+                print("Error: Could not find aligned_seq")
+                pass
