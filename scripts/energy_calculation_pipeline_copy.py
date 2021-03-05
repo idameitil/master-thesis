@@ -11,7 +11,6 @@ from joblib import Parallel, delayed
 import multiprocessing as mp
 import time
 
-
 def oneHot(residue):
     mapping = dict(zip("ACDEFGHIKLMNPQRSTVWY", range(20)))
     if residue in "ACDEFGHIKLMNPQRSTVWY":
@@ -122,9 +121,6 @@ def extract_foldx_energies(foldx_output_dir, model_filename):
             foldx_interaction_energies[group1 + group2] = float(interaction_energy)
     foldx_output.close()
     return foldx_interaction_energies
-
-def split_complex():
-
 
 def run_rosetta(model_filename):
     model_path = model_dir + model_filename
@@ -238,9 +234,14 @@ def create_output(model_filename, foldx_interaction_energies, rosetta_overall_sc
 
 def pipeline(model_filename):
     start_time = time.time()
+
+    model_ID = model_filename.replace(".pdb", "")
+    output_dir = "/home/people/idamei/results/model_energies/" + model_ID
+    subprocess.run(["mkdir", output_dir])
+
     # Run FoldX
     try:
-        foldx_output_dir = run_foldx(model_filename)
+        foldx_output_dir = run_foldx(mo)
     except Exception as err:
         print("FoldX failed for: " + model_filename, file=sys.stderr)
         print(err, file=sys.stderr)
