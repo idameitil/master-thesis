@@ -6,9 +6,78 @@ import subprocess
 import os
 import sys
 from Bio import SeqIO
+from Bio import PDB
 from joblib import Parallel, delayed
 import multiprocessing as mp
 import time
+
+class ChainSplitter:
+    def __init__(self, out_dir=None):
+        """ Create parsing and writing objects, specify output directory. """
+        self.parser = PDB.PDBParser()
+        self.writer = PDB.PDBIO()
+        if out_dir is None:
+            out_dir = os.path.join(os.getcwd(), "chain_PDBs")
+        self.out_dir = out_dir
+
+    def make_pdb(self, pdb_path, chain_letters, overwrite=False, struct=None):
+        """ Create a new PDB file containing only the specified chains.
+
+        Returns the path to the created file.
+
+        :param pdb_path: full path to the crystal structure
+        :param chain_letters: iterable of chain characters (case insensitive)
+        :param overwrite: write over the output file if it exists
+        """
+        chain_letters = [chain.upper() for chain in chain_letters]
+
+        # Input/output files
+        (pdb_dir, pdb_fn) = os.path.split(pdb_path)
+        pdb_id = pdb_fn[3:7]
+        out_name = "pdb%s_%s.ent" % (pdb_id, "".join(chain_letters))
+        out_path = os.path.join(self.out_dir, out_name)
+        print "OUT PATH:",out_path
+        plural = "s" if (len(chain_letters) > 1) else ""  # for printing
+
+        # Skip PDB generation if the file already exists
+        if (not overwrite) and (os.path.isfile(out_path)):
+            print("Chain%s %s of '%s' already extracted to '%s'." %
+                    (plural, ", ".join(chain_letters), pdb_id, out_name))
+            return out_path
+
+        print("Extracting chain%s %s from %s..." % (plural,
+                ", ".join(chain_letters), pdb_fn))
+
+        # Get structure, write new file with only given chains
+        if struct is None:
+            struct = self.parser.get_structure(pdb_id, pdb_path)
+        self.writer.set_structure(struct)
+        self.writer.save(out_path, select=SelectChains(chain_letters))
+
+        return out_path
+
+
+class SelectChains(PDB.Select):
+    """ Only accept the specified chains when saving. """
+    def __init__(self, chain_letters):
+        self.chain_letters = chain_letters
+
+    def accept_chain(self, chain):
+        return (chain.get_id() in self.chain_letters)
+
+
+
+    pdb_textfn = sys.argv[1]
+
+    pdbList = PDB.PDBList()
+    splitter = ChainSplitter("/home/steve/chain_pdbs")  # Change me.
+
+    with open(pdb_textfn) as pdb_textfile:
+        for line in pdb_textfile:
+            pdb_id = line[:4].lower()
+            chain = line[4]
+            pdb_fn = pdbList.retrieve_pdb_file(pdb_id)
+            splitter.make_pdb(pdb_fn, chain)
 
 def oneHot(residue):
     mapping = dict(zip("ACDEFGHIKLMNPQRSTVWY", range(20)))
@@ -16,14 +85,16 @@ def oneHot(residue):
         return np.eye(20)[mapping[residue]]
     else:
         return np.zeros(20)
-    
+
+
 def reverseOneHot(encoding):
-    mapping = dict(zip(range(20),"ACDEFGHIKLMNPQRSTVWY"))
-    seq=''
+    mapping = dict(zip(range(20), "ACDEFGHIKLMNPQRSTVWY"))
+    seq = ''
     for i in range(len(encoding)):
-        if np.max(encoding[i])>0:
-            seq+=mapping[np.argmax(encoding[i])]
+        if np.max(encoding[i]) > 0:
+            seq += mapping[np.argmax(encoding[i])]
     return seq
+
 
 def extract_seq_pdb(pdb_path):
     pdb_sequence = SeqIO.parse(open(pdb_path), 'pdb-atom')
@@ -38,7 +109,7 @@ def extract_seq_pdb(pdb_path):
     # Get sequence numbering
     pdb_file = open(pdb_path, "r")
     old_number = 0
-    numbering = {"M":[], "P":[], "A":[], "B":[]}
+    numbering = {"M": [], "P": [], "A": [], "B": []}
     for line in pdb_file:
         splitted_line = line.split()
         if splitted_line[0] != "ATOM":
@@ -48,29 +119,34 @@ def extract_seq_pdb(pdb_path):
         if new_number != old_number:
             numbering[chain].append(int(new_number))
             old_number = new_number
-    
+
+    print(sequences)
+
     return sequences, chains, total_length, numbering
 
-def run_foldx(model_filename):
 
+def run_foldx(model_filename):
     # Make output directory
     foldx_output_dir = "/home/people/idamei/energy_calc_pipeline/foldx_output/" \
-                        + model_filename + "_foldx/"
+                       + model_filename + "_foldx/"
     subprocess.run(["mkdir", foldx_output_dir])
 
     # RepairPDB
-    #repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false --output-dir={}".format(model_filename, foldx_output_dir)
-    #subprocess.run(repair_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=model_dir)
-    
+    # repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false --output-dir={}".format(model_filename, foldx_output_dir)
+    # subprocess.run(repair_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=model_dir)
+
     # AnalyseComplex
     repaired_pdb_path = model_filename.replace(".fsa_model_TCR-pMHC.pdb", "_Repair.pdb")
-    analyse_command = "foldx --command=AnalyseComplex --pdb={} --output-dir={}".format(repaired_pdb_path, foldx_output_dir)
+    analyse_command = "foldx --command=AnalyseComplex --pdb={} --output-dir={}".format(repaired_pdb_path,
+                                                                                       foldx_output_dir)
     subprocess.run(analyse_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=foldx_output_dir)
 
     return foldx_output_dir
 
+
 def extract_foldx_energies(foldx_output_dir, model_filename):
-    interaction_file_path = foldx_output_dir + "Interaction_" + model_filename.replace(".fsa_model_TCR-pMHC.pdb", "_Repair_AC.fxout")
+    interaction_file_path = foldx_output_dir + "Interaction_" + model_filename.replace(".fsa_model_TCR-pMHC.pdb",
+                                                                                       "_Repair_AC.fxout")
     foldx_output = open(interaction_file_path, "r")
     foldx_interaction_energies = dict()
     for line in foldx_output:
@@ -79,54 +155,55 @@ def extract_foldx_energies(foldx_output_dir, model_filename):
             group1 = splitted_line[1]
             group2 = splitted_line[2]
             interaction_energy = splitted_line[6]
-            foldx_interaction_energies[group1+group2] = float(interaction_energy)   
-    foldx_output.close() 
+            foldx_interaction_energies[group1 + group2] = float(interaction_energy)
+    foldx_output.close()
     return foldx_interaction_energies
 
-def run_rosetta(model_filename):
+def split_complex():
 
+
+def run_rosetta(model_filename):
     model_path = model_dir + model_filename
     rosetta_output_dir = "/home/people/idamei/energy_calc_pipeline/rosetta_output/" \
-                        + model_filename + "_rosetta/"
+                         + model_filename + "_rosetta/"
     subprocess.run(["mkdir", rosetta_output_dir])
-    
+
     # Relaxation
     rosetta_relax_command = "relax.default.linuxgccrelease \
                             -ignore_unrecognized_res \
                             -nstruct 1 \
                             -s {} \
                             -out:path:pdb {}".format(model_path, rosetta_output_dir)
-    
-    #subprocess.run(rosetta_relax_command.split(), universal_newlines=True)
-    
+
+    # subprocess.run(rosetta_relax_command.split(), universal_newlines=True)
+
     # Scoring
     relaxed_pdb_path = rosetta_output_dir + model_filename.replace(".pdb", "_0001.pdb")
     rosetta_scorefile_path = rosetta_output_dir + model_filename + "_score.sc"
     rosetta_score_command = "score_jd2.linuxgccrelease \
                             -in:file:s {} \
                             -out:file:scorefile {}".format(relaxed_pdb_path, rosetta_scorefile_path)
-    #subprocess.run(rosetta_score_command.split(), universal_newlines=True)
+    # subprocess.run(rosetta_score_command.split(), universal_newlines=True)
 
     # Per residue scoring
     rosetta_per_res_scorefile_path = rosetta_output_dir + model_filename + "_per_residue_score.sc"
     rosetta_per_res_score_command = "per_residue_energies.linuxgccrelease \
                                     -in:file:s {} \
                                     -out:file:silent {}".format(relaxed_pdb_path, rosetta_per_res_scorefile_path)
-    #subprocess.run(rosetta_per_res_score_command.split(), universal_newlines=True)
+    # subprocess.run(rosetta_per_res_score_command.split(), universal_newlines=True)
 
     return rosetta_scorefile_path, rosetta_per_res_scorefile_path
-    
-def extract_rosetta_energies(rosetta_scorefile_path, rosetta_per_res_scorefile_path, model_filename):
 
+def extract_rosetta_energies(rosetta_scorefile_path, rosetta_per_res_scorefile_path, model_filename):
     # Rosetta overall energies
     rosetta_scorefile = open(rosetta_scorefile_path, "r")
     rosetta_scorefile.readline()
     rosetta_scorefile.readline()
-    #SCORE: total_score       score dslf_fa13    fa_atr    fa_dun   fa_elec fa_intra_rep fa_intra_sol_xover4              fa_rep              fa_sol hbond_bb_sc hbond_lr_bb    hbond_sc hbond_sr_bb linear_chainbreak lk_ball_wtd       omega overlap_chainbreak            p_aa_pp pro_close rama_prepro         ref        time yhh_planarity description
+    # SCORE: total_score       score dslf_fa13    fa_atr    fa_dun   fa_elec fa_intra_rep fa_intra_sol_xover4              fa_rep              fa_sol hbond_bb_sc hbond_lr_bb    hbond_sc hbond_sr_bb linear_chainbreak lk_ball_wtd       omega overlap_chainbreak            p_aa_pp pro_close rama_prepro         ref        time yhh_planarity description
     line = rosetta_scorefile.readline()
     splitted_line = line.strip().split()
-    rosetta_overall_scores = splitted_line[1:-1] # 24 elements
-    rosetta_overall_scores = [ float(x) for x in rosetta_overall_scores ]
+    rosetta_overall_scores = splitted_line[1:-1]  # 24 elements
+    rosetta_overall_scores = [float(x) for x in rosetta_overall_scores]
     rosetta_scorefile.close()
 
     # Rosetta per residue energies
@@ -138,7 +215,7 @@ def extract_rosetta_energies(rosetta_scorefile_path, rosetta_per_res_scorefile_p
     length_P = max(numbering["P"])
     length_A = max(numbering["A"])
     length_B = max(numbering["B"])
-    rosetta_per_res_scores = {"M":{}, "P":{}, "A":{}, "B":{}}
+    rosetta_per_res_scores = {"M": {}, "P": {}, "A": {}, "B": {}}
     # SCORE:     pose_id     pdb_id     fa_atr     fa_rep     fa_sol    fa_intra_rep    fa_intra_sol_xover4    lk_ball_wtd    fa_elec    pro_close    hbond_sr_bb    hbond_lr_bb    hbond_bb_sc    hbond_sc    dslf_fa13      omega     fa_dun    p_aa_pp    yhh_planarity        ref    rama_prepro      score description
     for line in rosetta_per_res_scorefile:
         splitted_line = line.strip().split()
@@ -147,51 +224,53 @@ def extract_rosetta_energies(rosetta_scorefile_path, rosetta_per_res_scorefile_p
         pdb_id = splitted_line[2]
         chain = pdb_id[-1]
         position = int(pdb_id[:-1])
-        rosetta_per_res_scores[chain][position] = [ float(x) for x in splitted_line[3:-1] ] #20 elements
+        rosetta_per_res_scores[chain][position] = [float(x) for x in splitted_line[3:-1]]  # 20 elements
     rosetta_scorefile.close()
 
     return rosetta_overall_scores, rosetta_per_res_scores
-    
+
+
 def create_output(model_filename, foldx_interaction_energies, rosetta_overall_scores, rosetta_per_res_scores):
-    # one-hot AA, M, P, TCR, foldx_MP, foldx_MA, foldx_MB, foldx_PA, foldx_PB, foldx_AB, 
+    # one-hot AA, M, P, TCR, foldx_MP, foldx_MA, foldx_MB, foldx_PA, foldx_PB, foldx_AB,
     # Rosetta_total_energy, Rosetta_per_res_indiv_energies
 
     # Extract sequence from PDB
     model_path = model_dir + model_filename
     sequences, chains, total_length, numbering = extract_seq_pdb(model_path)
-    
+
     # Create output_array
-    output_array = np.empty(shape=(total_length,74))
-    k1 = 0 # chain
-    k2 = 0 # residue number total
+    output_array = np.empty(shape=(total_length, 74))
+    k1 = 0  # chain
+    k2 = 0  # residue number total
     for chain in sequences:
         chain = chains[k1]
         sequence = sequences[k1]
         k1 += 1
-        k3 = 0 # chain residue number
+        k3 = 0  # chain residue number
         for aminoacid in sequence:
             number = numbering[chain][k1]
-            output_array[k2,0:20] = oneHot(aminoacid)
+            output_array[k2, 0:20] = oneHot(aminoacid)
             if chain == "M":
-                output_array[k2,20:24] = np.array([1, 0, 0, 0])
-                output_array[k2,54:74] = rosetta_per_res_scores["M"][number]
+                output_array[k2, 20:24] = np.array([1, 0, 0, 0])
+                output_array[k2, 54:74] = rosetta_per_res_scores["M"][number]
             if chain == "P":
-                output_array[k2,20:24] = np.array([0, 1, 0, 0])
-                output_array[k2,54:74] = rosetta_per_res_scores["P"][number]
+                output_array[k2, 20:24] = np.array([0, 1, 0, 0])
+                output_array[k2, 54:74] = rosetta_per_res_scores["P"][number]
             if chain == "A":
-                output_array[k2,20:24] = np.array([0, 0, 1, 0])
-                output_array[k2,54:74] = rosetta_per_res_scores["A"][number]
+                output_array[k2, 20:24] = np.array([0, 0, 1, 0])
+                output_array[k2, 54:74] = rosetta_per_res_scores["A"][number]
             if chain == "B":
-                output_array[k2,20:24] = np.array([0, 0, 0, 1])
-                output_array[k2,54:74] = rosetta_per_res_scores["B"][number]
-            output_array[k2,24:30] = list(foldx_interaction_energies.values())
-            output_array[k2,30:54] = rosetta_overall_scores
+                output_array[k2, 20:24] = np.array([0, 0, 0, 1])
+                output_array[k2, 54:74] = rosetta_per_res_scores["B"][number]
+            output_array[k2, 24:30] = list(foldx_interaction_energies.values())
+            output_array[k2, 30:54] = rosetta_overall_scores
             k2 += 1
             k3 += 1
-    #np.set_printoptions(threshold=sys.maxsize)
+    # np.set_printoptions(threshold=sys.maxsize)
     #   print(output_array)
 
     return output_array
+
 
 def pipeline(model_filename):
     start_time = time.time()
@@ -218,14 +297,25 @@ def pipeline(model_filename):
 
     # Extract Rosetta energies
     try:
-        rosetta_overall_scores, rosetta_per_res_scores = extract_rosetta_energies(rosetta_scorefile_path, rosetta_per_res_scorefile_path, model_filename)
+        rosetta_overall_scores, rosetta_per_res_scores = extract_rosetta_energies(rosetta_scorefile_path,
+                                                                                  rosetta_per_res_scorefile_path,
+                                                                                  model_filename)
     except Exception as err:
         print("Extracting Rosetta energies failed for: " + model_filename, file=sys.stderr)
         print(err, file=sys.stderr)
-    
+
+    # Split pdb
+
+    # Run Rosetta TCR
+    # Exract Rosetta TCR
+
+    # Run Rosetta TCR
+    # Exract Rosetta TCR
+
     # Create output
     try:
-        output_array = create_output(model_filename, foldx_interaction_energies, rosetta_overall_scores, rosetta_per_res_scores)
+        output_array = create_output(model_filename, foldx_interaction_energies, rosetta_overall_scores,
+                                     rosetta_per_res_scores)
     except Exception as err:
         print("Creating output failes for: " + model_filename, file=sys.stderr)
         print(err, file=sys.stderr)
@@ -235,10 +325,10 @@ def pipeline(model_filename):
 
     return output_array
 
-    
+
 model_dir = "/home/people/idamei/modeling/models/"
 p = subprocess.Popen(["ls", model_dir],
-                        stdout=subprocess.PIPE, universal_newlines=True)
+                     stdout=subprocess.PIPE, universal_newlines=True)
 models = p.communicate()[0].split()
 if "molecules" in models:
     models.remove("molecules")
@@ -252,6 +342,5 @@ results.append(pool.map(pipeline, [model for model in models]))
 
 pool.close()
 
-#np.savez("/home/people/idamei/energy_calc_pipeline/energy_output_arrays.npz", results
-
+# np.savez("/home/people/idamei/energy_calc_pipeline/energy_output_arrays.npz", results
 
