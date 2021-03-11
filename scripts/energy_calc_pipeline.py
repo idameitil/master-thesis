@@ -4,6 +4,8 @@ import os
 import sys
 from Bio import SeqIO
 from Bio import PDB
+from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB.Polypeptide import PPBuilder
 from joblib import Parallel, delayed
 import multiprocessing as mp
 import time
@@ -27,7 +29,7 @@ class energy_calculation:
         subprocess.run(["mkdir", self.model_output_dir])
 
         # Get PDB features
-        self.sequences, self.chains, self.total_length, self.numbering = self.extract_seq_pdb(self.model_path)
+        self.extract_pdb_features()
 
         # Split pdb
         try:
@@ -38,9 +40,9 @@ class energy_calculation:
 
         # Run FoldX
         try:
-        #    start_time = time.time()
-         #   self.run_foldx()
-          #  runtime = (time.time() - start_time) / 60
+            start_time = time.time()
+            self.run_foldx()
+            runtime = (time.time() - start_time) / 60
             print("FoldX took {} min".format(runtime))
         except Exception as err:
             print("FoldX failed for: " + self.model_ID, file=sys.stderr)
@@ -55,17 +57,17 @@ class energy_calculation:
 
         # Run Rosetta
         try:
-        #    start_time = time.time()
-         #   self.rosetta_scorefile_path_complex, self.rosetta_per_res_scorefile_path_complex = self.run_rosetta(self.model_path)
-          #  runtime = (time.time() - start_time) / 60
-           # print("Rosetta for complex took {} min".format(runtime))
-            #start_time = time.time()
-       #     self.rosetta_scorefile_path_tcr, self.rosetta_per_res_scorefile_path_tcr = self.run_rosetta(self.tcr_path)
-        #    runtime = (time.time() - start_time) / 60
-         #   print("Rosetta for TCR took {} min".format(runtime))
-          #  start_time = time.time()
-           # self.rosetta_scorefile_path_pmhc, self.rosetta_per_res_scorefile_path_pmhc = self.run_rosetta(self.pmhc_path)
-            #runtime = (time.time() - start_time) / 60
+            start_time = time.time()
+            self.rosetta_scorefile_path_complex, self.rosetta_per_res_scorefile_path_complex = self.run_rosetta(self.model_path)
+            runtime = (time.time() - start_time) / 60
+            print("Rosetta for complex took {} min".format(runtime))
+            start_time = time.time()
+            self.rosetta_scorefile_path_tcr, self.rosetta_per_res_scorefile_path_tcr = self.run_rosetta(self.tcr_path)
+            runtime = (time.time() - start_time) / 60
+            print("Rosetta for TCR took {} min".format(runtime))
+            start_time = time.time()
+            self.rosetta_scorefile_path_pmhc, self.rosetta_per_res_scorefile_path_pmhc = self.run_rosetta(self.pmhc_path)
+            runtime = (time.time() - start_time) / 60
             print("Rosetta for pMHC took {} min".format(runtime))
 
         except Exception as err:
@@ -91,7 +93,7 @@ class energy_calculation:
         # Create output
         try:
             self.create_output()
-            return self.output_array
+            return self.model_ID, self.output_array
         except Exception as err:
             print("Creating output failed for: " + self.model_ID, file=sys.stderr)
             print(err, file=sys.stderr)
@@ -103,13 +105,13 @@ class energy_calculation:
 
         # RepairPDB
         repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false --output-dir={}".format(self.model_filename, self.model_output_dir)
-        subprocess.run(repair_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_dir)
+        #subprocess.run(repair_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_dir)
 
         # AnalyseComplex
         repaired_pdb_path = self.model_filename.replace(".fsa_model_TCR-pMHC.pdb", "_Repair.pdb")
         analyse_command = "foldx --command=AnalyseComplex --pdb={} --output-dir={}".format(repaired_pdb_path,
                                                                                            self.model_output_dir)
-        subprocess.run(analyse_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
+        #subprocess.run(analyse_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
 
     def extract_foldx_energies(self):
         self.interaction_file_path = self.model_output_dir + "Interaction_" + self.model_filename.replace(".fsa_model_TCR-pMHC.pdb",
@@ -137,7 +139,7 @@ class energy_calculation:
                                 -nstruct 1 \
                                 -s {} \
                                 -out:path:pdb {}".format(infile, self.model_output_dir)
-        subprocess.run(rosetta_relax_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
+        #subprocess.run(rosetta_relax_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
 
         # Scoring
         relaxed_pdb_path = self.model_output_dir + infilename.replace(".pdb", "_0001.pdb")
@@ -145,14 +147,14 @@ class energy_calculation:
         rosetta_score_command = "score_jd2.linuxgccrelease \
                                 -in:file:s {} \
                                 -out:file:scorefile {}".format(relaxed_pdb_path, rosetta_scorefile_path)
-        subprocess.run(rosetta_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
+        #subprocess.run(rosetta_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
 
         # Per residue scoring
         rosetta_per_res_scorefile_path = self.model_output_dir + infilename + "_per_residue_score.sc"
         rosetta_per_res_score_command = "per_residue_energies.linuxgccrelease \
                                         -in:file:s {} \
                                         -out:file:silent {}".format(relaxed_pdb_path, rosetta_per_res_scorefile_path)
-        subprocess.run(rosetta_per_res_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
+        #subprocess.run(rosetta_per_res_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
 
         return rosetta_scorefile_path, rosetta_per_res_scorefile_path
 
@@ -185,24 +187,24 @@ class energy_calculation:
         return rosetta_overall_scores, rosetta_per_res_scores
 
     def create_output(self):
+        # Output array:
         # one-hot AA (20), M (1), P (1), TCRA (1), TCRB (1)
         # Rosetta_per_res_indiv_energies_complex (20), Rosetta_per_res_indiv_energies_pmhc/Rosetta_per_res_indiv_energies_tcr (20)
         # foldx_MP (1), foldx_MA (1), foldx_MB (1), foldx_PA (1), foldx_PB (1), foldx_AB (1),
         # Rosetta_total_energy_complex (24), Rosetta_total_energy_tcr (24), Rosetta_total_energy_pmhc (24),
 
-        output_array = np.empty(shape=(self.total_length, 142))
+        output_array = np.zeros(shape=(self.total_length, 142))
         k1 = 0  # chain
         k2 = 0  # residue number total
         for chain in self.sequences:
-            chain = self.chains[k1]
-            sequence = self.sequences[k1]
+            sequence = self.sequences[chain]
             k1 += 1
             k3 = 0  # chain residue number
             for aminoacid in sequence:
-                number = self.numbering[chain][k1]
-                output_array[k2, 0:20] = self.oneHot(aminoacid)
+                number = self.numbering[chain][k3]
+                output_array[k2, 0:20] = self.oneHot(aminoacid) #check
                 if chain == "M":
-                    output_array[k2, 20:24] = np.array([1, 0, 0, 0])
+                    output_array[k2, 20:24] = np.array([1, 0, 0, 0]) #check
                     output_array[k2, 24:44] = self.rosetta_per_res_scores_complex["M"][number]
                     output_array[k2, 44:64] = self.rosetta_per_res_scores_pmhc["M"][number]
                 if chain == "P":
@@ -217,14 +219,54 @@ class energy_calculation:
                     output_array[k2, 20:24] = np.array([0, 0, 0, 1])
                     output_array[k2, 24:44] = self.rosetta_per_res_scores_complex["B"][number]
                     output_array[k2, 44:64] = self.rosetta_per_res_scores_tcr["B"][number]
-                output_array[k2, 64:70] = list(self.foldx_interaction_energies.values())
-                output_array[k2, 70:94] = self.rosetta_overall_scores_complex
-                output_array[k2, 94:118] = self.rosetta_overall_scores_tcr
-                output_array[k2, 118:142] = self.rosetta_overall_scores_pmhc
+                output_array[k2, 64:70] = list(self.foldx_interaction_energies.values()) #check
+                output_array[k2, 70:94] = self.rosetta_overall_scores_complex #check
+                output_array[k2, 94:118] = self.rosetta_overall_scores_tcr #check
+                output_array[k2, 118:142] = self.rosetta_overall_scores_pmhc #check
                 k2 += 1
                 k3 += 1
-
+        print(self.model_ID, self.total_length)
         self.output_array = output_array
+
+    def extract_pdb_features(self):
+
+        # Get chain names and sequence numbering
+        pdb_file = open(self.model_path, "r")
+        numbering = {"M": [], "P": [], "A": [], "B": []}
+        chain_names = []
+        old_number = 0
+        old_chain = ""
+        for line in pdb_file:
+            splitted_line = line.split()
+            if splitted_line[0] != "ATOM":
+                continue
+            chain = splitted_line[4]
+            if chain != old_chain:
+                chain_names.append(chain)
+                old_chain = chain
+            new_number = splitted_line[5]
+            if new_number != old_number:
+                numbering[chain].append(int(new_number))
+                old_number = new_number
+
+        # Get sequences
+        structure = PDBParser().get_structure('', self.model_path)
+        ppb = PPBuilder()
+        chain_sequences = {}
+        i = 0
+        for pp in ppb.build_peptides(structure):
+            chain_name = chain_names[i]
+            chain_sequences[chain_name] = str(pp.get_sequence())
+            i += 1
+    
+        self.chain_names = chain_names
+        self.sequences = chain_sequences
+        self.numbering = numbering
+        self.length_A = len(chain_sequences["A"])
+        self.length_B = len(chain_sequences["B"])
+        self.length_M = len(chain_sequences["M"])
+        self.length_P = len(chain_sequences["P"])
+        self.total_length = self.length_P + self.length_M + self.length_B + self.length_A
 
     @staticmethod
     def oneHot(residue):
@@ -233,33 +275,6 @@ class energy_calculation:
             return np.eye(20)[mapping[residue]]
         else:
             return np.zeros(20)
-
-    @staticmethod
-    def extract_seq_pdb(pdb_path):
-        pdb_sequence = SeqIO.parse(open(pdb_path), 'pdb-atom')
-        sequences = []
-        chains = []
-        total_length = 0
-        for chain in pdb_sequence:
-            sequences.append(str(chain.seq))
-            total_length += len(str(chain.seq))
-            chains.append(chain.id.replace('????:', ''))
-
-        # Get sequence numbering
-        pdb_file = open(pdb_path, "r")
-        old_number = 0
-        numbering = {"M": [], "P": [], "A": [], "B": []}
-        for line in pdb_file:
-            splitted_line = line.split()
-            if splitted_line[0] != "ATOM":
-                continue
-            chain = splitted_line[4]
-            new_number = splitted_line[5]
-            if new_number != old_number:
-                numbering[chain].append(int(new_number))
-                old_number = new_number
-
-        return sequences, chains, total_length, numbering
 
     @staticmethod
     def selectChain(ifn, ofn, chainID):
@@ -300,9 +315,9 @@ class energy_calculation:
 def worker(model_filename):
 
     instance = energy_calculation(model_filename, model_dir)
-    result = instance.pipeline()
+    model_ID, result = instance.pipeline()
 
-    return result
+    return model_ID, result
 
 model_dir = "/home/people/idamei/modeling/models/"
 p = subprocess.Popen(["ls", model_dir],
@@ -314,11 +329,11 @@ if "rotabase.txt" in models:
     models.remove("rotabase.txt")
 #models = ["3TFK.fsa_model_TCR-pMHC.pdb"]
 pool = mp.Pool(4)
-
-results = []
-results.append(pool.map(worker, [model for model in models]))
-
+results = (pool.map(worker, [model for model in models]))
 pool.close()
 
-np.savez("/home/people/idamei/energy_calc_pipeline/energy_output_arrays.npz", results)
+results_dict = {}
+for result in results:
+    results_dict[result[0]] = result[1]
 
+np.savez("/home/people/idamei/energy_calc_pipeline/energy_output_arrays.npz", **results_dict)
