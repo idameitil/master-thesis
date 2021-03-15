@@ -81,7 +81,7 @@ for line in infile2:
     if not hit:
         print("ERROR")
     outfile2.write(",".join([CDR3a, CDR3b, random_peptide, partition, str(0), v_gene_alpha, j_gene_alpha, v_gene_beta, \
-                            j_gene_beta, CDR3a_full, CDR3b_full]))
+                            j_gene_beta+"\n"]))
     # Count peptides
     peptide_counts_swapped[int(partition)][random_peptide] += 1
 frequencies_swapped = {1:{}, 2:{}, 3:{}, 4:{}, 5:{}}
