@@ -10,23 +10,34 @@ from joblib import Parallel, delayed
 import multiprocessing as mp
 import time
 import re
+from joblib import Parallel, delayed
+import concurrent.futures
 
 class energy_calculation:
 
     def __init__(self, model_filename, model_dir):
         self.model_filename = model_filename
         self.model_dir = model_dir
-        self.model_ID = model_filename.replace(".pdb","")
+        self.model_ID = model_filename.replace("_model.pdb","")
         self.model_path = model_dir + model_filename
-        self.output_dir = "/home/people/idamei/results/model_energies/"
-        self.model_output_dir = self.output_dir + self.model_ID + "/"
+        self.origin = "positives"
+        self.partition = "1"
+        self.model_output_dir = f"/home/projects/ht3_aim/people/idamei/results/energy_calc_full_output/{self.partition}/{self.origin}/{self.model_ID}/"
+        #self.model_output_dir = f"/home/projects/ht3_aim/people/idamei/full_output_test/"
+        self.numpy_output_dir = f"/home/projects/ht3_aim/people/idamei/results/energy_output_arrays/{self.partition}/{self.origin}/"
+        #self.numpy_output_dir = f"/home/projects/ht3_aim/people/idamei/numpy_output_test/"
+        if self.origin == "positives":
+            self.binder = 1
+        else:
+            self.binder = 0
 
     def pipeline(self):
         startstart_time = time.time()
         print("Start " + self.model_filename)
 
         # Make output directory
-        subprocess.run(["mkdir", self.model_output_dir])
+        os.makedirs(self.model_output_dir, exist_ok = True)
+        os.chdir(self.model_output_dir)
 
         # Get PDB features
         self.extract_pdb_features()
@@ -69,7 +80,6 @@ class energy_calculation:
             self.rosetta_scorefile_path_pmhc, self.rosetta_per_res_scorefile_path_pmhc = self.run_rosetta(self.pmhc_path)
             runtime = (time.time() - start_time) / 60
             print("Rosetta for pMHC took {} min".format(runtime))
-
         except Exception as err:
             print("Rosetta failed for: " + self.model_ID, file=sys.stderr)
             print(err, file=sys.stderr)
@@ -85,7 +95,6 @@ class energy_calculation:
             self.rosetta_overall_scores_pmhc, self.rosetta_per_res_scores_pmhc = self.extract_rosetta_energies(
                 self.rosetta_scorefile_path_pmhc,
                 self.rosetta_per_res_scorefile_path_pmhc)
-
         except Exception as err:
             print("Extracting Rosetta energies failed for: " + self.model_ID, file=sys.stderr)
             print(err, file=sys.stderr)
@@ -93,7 +102,6 @@ class energy_calculation:
         # Create output
         try:
             self.create_output()
-            return self.model_ID, self.output_array
         except Exception as err:
             print("Creating output failed for: " + self.model_ID, file=sys.stderr)
             print(err, file=sys.stderr)
@@ -104,17 +112,18 @@ class energy_calculation:
     def run_foldx(self):
 
         # RepairPDB
-        repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false --output-dir={}".format(self.model_filename, self.model_output_dir)
-        #subprocess.run(repair_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_dir)
+        if not os.path.exists(self.model_filename.replace(".pdb", "_Repair.pdb")):
+            repair_command = "foldx --command=RepairPDB --pdb={} --ionStrength=0.05 --pH=7 --water=CRYSTAL --vdwDesign=2 --out-pdb=1 --pdbHydrogens=false --output-dir={}".format(self.model_filename, self.model_output_dir)
+            subprocess.run(repair_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_dir)
 
         # AnalyseComplex
-        repaired_pdb_path = self.model_filename.replace(".fsa_model_TCR-pMHC.pdb", "_Repair.pdb")
+        repaired_pdb_path = self.model_filename.replace(".pdb", "_Repair.pdb")
         analyse_command = "foldx --command=AnalyseComplex --pdb={} --output-dir={}".format(repaired_pdb_path,
                                                                                            self.model_output_dir)
-        #subprocess.run(analyse_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
+        subprocess.run(analyse_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
 
     def extract_foldx_energies(self):
-        self.interaction_file_path = self.model_output_dir + "Interaction_" + self.model_filename.replace(".fsa_model_TCR-pMHC.pdb",
+        self.interaction_file_path = self.model_output_dir + "Interaction_" + self.model_filename.replace(".pdb",
                                                                                            "_Repair_AC.fxout")
         foldx_output = open(self.interaction_file_path, "r")
         foldx_interaction_energies = dict()
@@ -130,31 +139,30 @@ class energy_calculation:
 
     def run_rosetta(self, infile):
 
-        result = re.search(r'/([^/]+)$', infile)
-        infilename = result.group(1)
-
         # Relaxation
         rosetta_relax_command = "relax.default.linuxgccrelease \
                                 -ignore_unrecognized_res \
                                 -nstruct 1 \
                                 -s {} \
                                 -out:path:pdb {}".format(infile, self.model_output_dir)
-        #subprocess.run(rosetta_relax_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
+        subprocess.run(rosetta_relax_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
 
         # Scoring
+        result = re.search(r'/([^/]+)$', infile)
+        infilename = result.group(1)
         relaxed_pdb_path = self.model_output_dir + infilename.replace(".pdb", "_0001.pdb")
         rosetta_scorefile_path = self.model_output_dir + infilename + "_score.sc"
         rosetta_score_command = "score_jd2.linuxgccrelease \
                                 -in:file:s {} \
                                 -out:file:scorefile {}".format(relaxed_pdb_path, rosetta_scorefile_path)
-        #subprocess.run(rosetta_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
+        subprocess.run(rosetta_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
 
         # Per residue scoring
         rosetta_per_res_scorefile_path = self.model_output_dir + infilename + "_per_residue_score.sc"
         rosetta_per_res_score_command = "per_residue_energies.linuxgccrelease \
                                         -in:file:s {} \
                                         -out:file:silent {}".format(relaxed_pdb_path, rosetta_per_res_scorefile_path)
-        #subprocess.run(rosetta_per_res_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE)
+        subprocess.run(rosetta_per_res_score_command.split(), universal_newlines=True, stdout=subprocess.PIPE, cwd=self.model_output_dir)
 
         return rosetta_scorefile_path, rosetta_per_res_scorefile_path
 
@@ -192,8 +200,9 @@ class energy_calculation:
         # Rosetta_per_res_indiv_energies_complex (20), Rosetta_per_res_indiv_energies_pmhc/Rosetta_per_res_indiv_energies_tcr (20)
         # foldx_MP (1), foldx_MA (1), foldx_MB (1), foldx_PA (1), foldx_PB (1), foldx_AB (1),
         # Rosetta_total_energy_complex (24), Rosetta_total_energy_tcr (24), Rosetta_total_energy_pmhc (24),
+        # Positive/negative (1), origin (10X, swapped, origin) (3)
 
-        output_array = np.zeros(shape=(self.total_length, 142))
+        output_array = np.zeros(shape=(self.total_length, 146))
         k1 = 0  # chain
         k2 = 0  # residue number total
         for chain in self.sequences:
@@ -202,9 +211,9 @@ class energy_calculation:
             k3 = 0  # chain residue number
             for aminoacid in sequence:
                 number = self.numbering[chain][k3]
-                output_array[k2, 0:20] = self.oneHot(aminoacid) #check
+                output_array[k2, 0:20] = self.oneHot(aminoacid)
                 if chain == "M":
-                    output_array[k2, 20:24] = np.array([1, 0, 0, 0]) #check
+                    output_array[k2, 20:24] = np.array([1, 0, 0, 0])
                     output_array[k2, 24:44] = self.rosetta_per_res_scores_complex["M"][number]
                     output_array[k2, 44:64] = self.rosetta_per_res_scores_pmhc["M"][number]
                 if chain == "P":
@@ -219,14 +228,20 @@ class energy_calculation:
                     output_array[k2, 20:24] = np.array([0, 0, 0, 1])
                     output_array[k2, 24:44] = self.rosetta_per_res_scores_complex["B"][number]
                     output_array[k2, 44:64] = self.rosetta_per_res_scores_tcr["B"][number]
-                output_array[k2, 64:70] = list(self.foldx_interaction_energies.values()) #check
-                output_array[k2, 70:94] = self.rosetta_overall_scores_complex #check
-                output_array[k2, 94:118] = self.rosetta_overall_scores_tcr #check
-                output_array[k2, 118:142] = self.rosetta_overall_scores_pmhc #check
+                output_array[k2, 64:70] = list(self.foldx_interaction_energies.values())
+                output_array[k2, 70:94] = self.rosetta_overall_scores_complex
+                output_array[k2, 94:118] = self.rosetta_overall_scores_tcr
+                output_array[k2, 118:142] = self.rosetta_overall_scores_pmhc
+                output_array[k2, 142] = self.binder
+                if self.origin == "tenx_negatives":
+                    output_array[k2, 143:146] = np.array([1, 0, 0])
+                elif self.origin == "swapped_negatives":
+                    output_array[k2, 143:146] = np.array([0, 0, 1])
+                else:
+                    output_array[k2, 143:146] = np.array([0, 0, 1])
                 k2 += 1
                 k3 += 1
-        print(self.model_ID, self.total_length)
-        self.output_array = output_array
+        np.save(file=self.numpy_output_dir + self.model_ID + ".npy", arr=output_array)
 
     def extract_pdb_features(self):
 
@@ -315,11 +330,11 @@ class energy_calculation:
 def worker(model_filename):
 
     instance = energy_calculation(model_filename, model_dir)
-    model_ID, result = instance.pipeline()
+    instance.pipeline()
 
-    return model_ID, result
-
-model_dir = "/home/people/idamei/modeling/models/"
+origin = "positives"
+partition = "1"
+model_dir = f"/home/projects/ht3_aim/people/idamei/results/models/{partition}/{origin}/"
 p = subprocess.Popen(["ls", model_dir],
                      stdout=subprocess.PIPE, universal_newlines=True)
 models = p.communicate()[0].split()
@@ -327,13 +342,20 @@ if "molecules" in models:
     models.remove("molecules")
 if "rotabase.txt" in models:
     models.remove("rotabase.txt")
-#models = ["3TFK.fsa_model_TCR-pMHC.pdb"]
-pool = mp.Pool(4)
-results = (pool.map(worker, [model for model in models]))
-pool.close()
 
-results_dict = {}
-for result in results:
-    results_dict[result[0]] = result[1]
+#pool = mp.Pool(40)
+#pool.map(worker, [model for model in models])
+#pool.close()
 
-np.savez("/home/people/idamei/energy_calc_pipeline/energy_output_arrays.npz", **results_dict)
+#models_slice = models[108:118]
+#print(len(models[118:]))
+#models_slice = models[118:]
+
+models_slice = ["12528_model.pdb"]
+
+Parallel(n_jobs=20)(delayed(worker)(model) for model in models_slice)
+
+
+
+
+

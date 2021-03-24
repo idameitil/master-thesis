@@ -15,11 +15,7 @@ import csv
 from Bio import SeqIO
 import argparse
 
-parser = argparse.ArgumentParser(description='Transform TCR CDR+germ lines to complete sequences')
-parser.add_argument('filein',  type=str, help='the csv-format file from VDJ_DB the following data: sequence ID, CDR3, V gene, J gene')
-
-args = parser.parse_args()
-filein= args.filein
+filein= "/home/ida/master-thesis/data/all_data_numbered.csv"
 
 data=pandas.read_csv(filein,   sep=",")
 
@@ -122,7 +118,7 @@ with open( filein, mode='r') as infile:
             print("Error: Could not recognize J gene: {}".format(j_gene_alpha))
             continue
 
-        ig_chain1 =bcr.IgChain(rows[1], template_db=template_db, pdb_db=pdb_db)
+        ig_chain1 =bcr.IgChain(CDR3a, template_db=template_db, pdb_db=pdb_db)
         ig_chain2 =bcr.IgChain(vseq, template_db=template_db, pdb_db=pdb_db)
         ig_chain3 =bcr.IgChain(jseq, template_db=template_db, pdb_db=pdb_db)
 
@@ -132,7 +128,7 @@ with open( filein, mode='r') as infile:
             rege2=re.match(r'.{0,11}([FW]G.*)', ig_chain3.sequence)
             if rege2:
                 chain3=rege2.group(1)
-                finalseq=chain2+rows[1]+chain3
+                finalseq=chain2+CDR3a+chain3
                 final_ig =bcr.IgChain(finalseq, template_db=template_db, pdb_db=pdb_db)
                 try:
                     final_ig.hmmsearch(*hmms)
@@ -207,7 +203,7 @@ with open( filein, mode='r') as infile:
             print("Error: Could not recognize J gene: {}".format(j_gene_beta))
             continue
 
-        ig_chain1 =bcr.IgChain(rows[1], template_db=template_db, pdb_db=pdb_db)
+        ig_chain1 =bcr.IgChain(CDR3b, template_db=template_db, pdb_db=pdb_db)
         ig_chain2 =bcr.IgChain(vseq, template_db=template_db, pdb_db=pdb_db)
         ig_chain3 =bcr.IgChain(jseq, template_db=template_db, pdb_db=pdb_db)
 
@@ -217,7 +213,7 @@ with open( filein, mode='r') as infile:
             rege2=re.match(r'.{0,11}([FW]G.*)', ig_chain3.sequence)
             if rege2:
                 chain3=rege2.group(1)
-                finalseq=chain2+rows[1]+chain3
+                finalseq=chain2+CDR3b+chain3
                 final_ig =bcr.IgChain(finalseq, template_db=template_db, pdb_db=pdb_db)
                 try:
                     final_ig.hmmsearch(*hmms)
@@ -241,7 +237,7 @@ with open( filein, mode='r') as infile:
         else:
             TCRa_seq = aligned_seq_alpha.replace("-", "")
             TCRb_seq = aligned_seq_beta.replace("-", "")
-            outfile.write('{},{},{},{},{},{}\n'.format(ID,aligned_seq_alpha,aligned_seq_beta,peptide,partition,binder))
+            outfile.write('{},{},{},{},{},{}\n'.format(ID,TCRa_seq,TCRb_seq,peptide,partition,binder))
 print("Success: " + str(count_success))
 print("Error hmmsearch failed: " + str(error_1))
 print("Error F/W in J gene: " + str(error_2))
