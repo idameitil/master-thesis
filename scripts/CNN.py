@@ -1,120 +1,23 @@
-#imports
 print("Importing ...")
 import optparse, os, sys, glob, re, pickle, time, datetime
 import numpy as np
 import pandas as pd
 
-#FastAI functions
-from fastai.basic_data import *
-from fastai.basic_train import *
-from fastai.callbacks import *
-from fastai.data_block import *
-from fastai.metrics import *
-from fastai.train import *
-from fastai.utils import *
-from fastai.core import *
-from fastai.gen_doc import *
+from fastai.basic_data import DatasetType, DataBunch
+from fastai.basic_train import Learner, partial
+from fastai.callbacks import EarlyStoppingCallback
+from fastai.metrics import accuracy
+from fastai.train import fit_one_cycle
 
-#Pytorch
 import torch
 import torch.nn as nn
 import torch.utils.data as tdatautils
 
-from sklearn import metrics, svm, datasets, random_projection
-from sklearn.metrics import f1_score, confusion_matrix, roc_curve, auc, roc_auc_score, matthews_corrcoef, average_precision_score
+from sklearn.metrics import f1_score, confusion_matrix, auc, roc_auc_score, matthews_corrcoef, average_precision_score
 
-#Dataloaders and custom scripts
-from allscripts import data_generator, data_generator_blosum, data_generator_filenames
-from allscripts import upsample, generate_weights
+from allscripts import upsample, data_generator, generate_weights
 
-#Set random seeds
-torch.cuda.manual_seed_all(1)
-np.random.seed(1)
-
-# Set working directory to script path
-abspath = os.path.abspath(sys.argv[0])
-dname = os.path.dirname(abspath)
-os.chdir(dname)
-
-#############################
-# Parse commandline options
-#############################
-
-parser = optparse.OptionParser()
-
-#Set mode, and random or ordered partitions
-parser.add_option("-m", "--mode", dest="MODE", default=5, help="Set training mode: 1. Cross-val, 2. Nested-cross-val")
-parser.add_option("--r", "--random", dest="RANDOM", default=False, help="Set (random) partitions from filenames with True. Default ordered partitions")
-parser.add_option("--rp", dest="RP", default="False", help="Whether to use random projection unit")
-parser.add_option("--sets", dest="SETS", default=4, help="Number of times to train the network (e.g. 2 sets of 4 cycles)")
-
-#Set outdir, comment and csvfile path
-parser.add_option("-o", "--outdir", dest="OUTDIR", default="../results/31May", help="Set number of features used for each sequence position in X input data")
-parser.add_option("-c", dest="COMMENT", default="", help="Comment for CSV file")
-parser.add_option("--csvfile", dest="CSVFILE", default="../results/31May/31May.csv")
-
-#Network parameters
-parser.add_option("--dp", dest="DP", default=0.2, help="Drop-prob")
-parser.add_option("--lr", dest="LR", default=1, help="How long to keep high LR")
-
-#Set masking for amino acids within any 2 regions
-# E.g. mask peptide sequence from 181-192 (--m1 181 --m2 192)
-parser.add_option("--m1", "--mask1", dest="MASK1", default="", help="Set masking for any region in X")
-parser.add_option("--m2", "--mask2", dest="MASK2", default="", help="Set masking for any region in X")
-parser.add_option("--m3", "--mask3", dest="MASK3", default="", help="Set masking for any region in X")
-parser.add_option("--m4", "--mask4", dest="MASK4", default="", help="Set masking for any region in X")
-
-# Print network (layer) sizes
-parser.add_option("-p", "--ps", dest="ps", default=False, help="Print network sizes")
-
-#Remove later
-# Load baseline?
-parser.add_option("-l", "--load", dest="LOAD", default="", help="Load baseline trained models")
-
-(options,args) = parser.parse_args()
-
-MODE = int(options.MODE)
-OUTDIR = str(options.OUTDIR)
-COMMENT = str(options.COMMENT)
-CSVFILE = str(options.CSVFILE)
-PS = options.ps
-SETS = int(options.SETS)
-
-print("Input parameters:")
-if options.RANDOM != False:
-    RANDOM = True
-    COMMENT += " RP"
-    print("Random partition mode set")
-    
-if options.RP == True:
-    COMMENT += " unitrp"
-    print("Random project unit on")
-
-if options.SETS != int(1):
-    COMMENT += " S:" + str(SETS)
-    print("Sets:", str(SETS))
-
-if options.MASK1 != "" and options.MASK2 != "":
-    MASK1 = int(options.MASK1)
-    MASK2 = int(options.MASK2)
-    COMMENT += " M:" + str(MASK1) + "_" + str(MASK2)
-    print("Masking in region", str(MASK1) + str(MASK2))
-    
-if options.MASK3 != "" and options.MASK4 != "":
-    MASK3 = int(options.MASK3)
-    MASK4 = int(options.MASK4)
-    COMMENT += " M2:" + str(MASK3) + "_" + str(MASK4)
-    print("Masking in region", str(MASK3) + str(MASK4))
-    
-if options.DP != 0.2:
-    COMMENT += " dp:" + str(options.DP)
-    print("Drop prob set to", str(options.DP))
-
-print("Comment:", COMMENT)
-print("Model outdir:", OUTDIR)
-print("CSV path:", CSVFILE)
-
-os.makedirs(OUTDIR, exist_ok = True)
+print("Importing done")
 
 #############################
 # Functions
@@ -123,11 +26,6 @@ os.makedirs(OUTDIR, exist_ok = True)
 #Convert numpy to torch
 def to_torch_data(x,np_type,tch_type):
     return torch.from_numpy(x.astype(np_type)).to(tch_type)
-
-#Print tail of CSV file
-def csvfile(n = 10, filename = CSVFILE):
-    df = pd.read_csv(filename)
-    return df.tail(n)
     
 #Main function for calculating model performance
 def record_stats(ds = DatasetType.Valid):
@@ -162,8 +60,8 @@ def record_stats(ds = DatasetType.Valid):
     f1 = round(f1, 3)
     avp = round(avp, 3)
 
-    confusion = metrics.confusion_matrix(y_true, yhat)
-    tn, fp, fn, tp = metrics.confusion_matrix(y_true, yhat).ravel()
+    confusion = confusion_matrix(y_true, yhat)
+    tn, fp, fn, tp = confusion_matrix(y_true, yhat).ravel()
     tpr = (tp / (tp+fn))
     tnr = (tn / (tn+fp))
     precision = tp / (tp + fp)
@@ -213,65 +111,6 @@ def stats_to_csv(start_time = time.time(), val_part = 4, test_part = int(), comm
     print(["ACC", "AUC", "MCC", "F1", "AVP", "TPR", "TNR", "Prec", "Rec", "Confusion matrix"])
     print(row[4:13])
     print(row[13])
-    #return(pd.DataFrame(row[4:13]).transpose())
-
-
-#############################
-# Load data
-#############################
-
-if options.RANDOM == "True":
-    print("Loading data by filename (randomized) partitions")
-    filelist = glob.glob("/home/ida/TCR-p-MHC/data/03_Dataset/*")
-    p0 = filelist[0:293]
-    p1 = filelist[293:586]
-    p2 = filelist[586:879]
-    p3 = filelist[879:1172]
-    p4 = filelist[1172:1464]
-    
-else:
-    print("Loading data by ordered partitions ...")
-    p0 = glob.glob("../data/train_data/*1p*")
-    p1 = glob.glob("../data/train_data/*2p*")
-    p2 = glob.glob("../data/train_data/*3p*")
-    p3 = glob.glob("../data/train_data/*4p*")
-    p4 = glob.glob("../data/train_data/*5p*")
-
-print("Partition sizes:", len(p0), len(p1), len(p2), len(p3), len(p4))
-
-#############################
-# Model Start
-#############################
-
-print("Setting up model ...")
-
-#Setting number of features
-features = list(range(0,146))
-
-#Hyperparams for CNN
-criterion = nn.CrossEntropyLoss()
-in_channel = len(features)
-n_hid = 56
-epochs = 0
-batch_size = 32
-drop_prob = 0.2
-
-#Kernel sizes
-ks0 = 1
-pad0 = int((ks0) / 2)
-ks1 = 11
-pad1 = int((ks1) / 2)
-ks2 = 9
-pad2 = int((ks2) / 2)
-ks3 = 7
-pad3 = int((ks3) / 2)
-ks4 = 7
-pad4 = int((ks4) / 2)
-ks5 = 5
-pad5 = int((ks5) / 2)
-ks6 = 3
-pad6 = int((ks6) / 2)
-ps = True
 
 class Model(nn.Module):
     def __init__(self):
@@ -281,8 +120,8 @@ class Model(nn.Module):
         self.a_norm_0 = nn.BatchNorm1d(in_channel)
         
         #Pad
-        self.m_pad = nn.ConstantPad1d((160), 0)
-        self.t_pad = nn.ConstantPad1d((118), 0)
+        self.m_pad = nn.ConstantPad1d((161), 0)
+        self.t_pad = nn.ConstantPad1d((157), 0)
         #self.p_pad = nn.ConstantPad1d((112, 113), 0)
         
         #Conv1
@@ -388,8 +227,6 @@ class Model(nn.Module):
     def forward(self, x):
         global ps
         bs0 = x.shape[0]
-        
-        #Default 0:53
 
         x = x[:, :, features]
     
@@ -397,12 +234,9 @@ class Model(nn.Module):
         x = x.transpose(1, 2)
         if ps: print("Transposed X:", x.shape)
             
-        #x = self.a_norm_0(x)
-        
-        mhcp = x[:, :, 0:192]
-        mhcp = x[:, :, ]
-        tcr = x[:, :, 192:]
-        pep = x[:, :, 181:192]
+        mhcp = x[:, :, 0:181+9]
+        tcr = x[:, :, 181+9:]
+        pep = x[:, :, 181:181+9]
         
         if ps: print("Shapes MHC:p, TCR:", mhcp.shape, tcr.shape)
 
@@ -469,16 +303,11 @@ class Model(nn.Module):
         
         return x
 
-    
-#############################
-# Model train function
-#############################
-# Cross validation with specified LR, epochs per cycle and number of cycles
-# Saves model
-
 def simple_train(cycles=4, LR=10*[1e-02, 1e-01], epochs=10*[3],
                          val_part = int(4), test_part = str(),
                          skip = False):
+    """Model train function. Cross validation with specified LR, epochs per cycle and number of cycles."""
+
     train_part=[0, 1, 2, 3, 4]
     LR = pd.Series(LR)
     
@@ -508,75 +337,208 @@ def simple_train(cycles=4, LR=10*[1e-02, 1e-01], epochs=10*[3],
     
     return(filepath)
 
+#############################
+# MAIN
+#############################
+
+#Set random seeds
+torch.cuda.manual_seed_all(1)
+np.random.seed(1)
+
+# Set working directory to script path
+abspath = os.path.abspath(sys.argv[0])
+dname = os.path.dirname(abspath)
+os.chdir(dname)
 
 #############################
-# Run model using cross-val
+# Parse commandline options
 #############################
+
+parser = optparse.OptionParser()
+
+#Set mode, and random or ordered partitions
+parser.add_option("-m", "--mode", dest="MODE", default=1, help="Set training mode: 1. Cross-val, 2. Nested-cross-val, .")
+parser.add_option("--r", "--random", dest="RANDOM", default=False, help="Set (random) partitions from filenames with True. Default ordered partitions")
+parser.add_option("--rp", dest="RP", default="False", help="Whether to use random projection unit")
+parser.add_option("--sets", dest="SETS", default=4, help="Number of times to train the network (e.g. 2 sets of 4 cycles)")
+parser.add_option("--gpu", dest="GPU", default="True", help="Whether script is being run on a GPU")
+
+#Set outdir, comment and csvfile path
+parser.add_option("-o", "--outdir", dest="OUTDIR", default="../results/0412_m1/", help="Set number of features used for each sequence position in X input data")
+parser.add_option("-c", dest="COMMENT", default="", help="Comment for CSV file")
+parser.add_option("--csvfile", dest="CSVFILE", default="../results/0412/0412_m1.csv")
+
+#Network parameters
+parser.add_option("--dp", dest="DP", default=0.2, help="Drop-prob")
+parser.add_option("--lr", dest="LR", default=1, help="How long to keep high LR")
+
+#Set masking for amino acids within any 2 regions
+# E.g. mask peptide sequence from 181-192 (--m1 181 --m2 192)
+parser.add_option("--m1", "--mask1", dest="MASK1", default="", help="Set masking for any region in X")
+parser.add_option("--m2", "--mask2", dest="MASK2", default="", help="Set masking for any region in X")
+parser.add_option("--m3", "--mask3", dest="MASK3", default="", help="Set masking for any region in X")
+parser.add_option("--m4", "--mask4", dest="MASK4", default="", help="Set masking for any region in X")
+
+# Print network (layer) sizes
+parser.add_option("-p", "--ps", dest="ps", default=False, help="Print network sizes")
+
+#Remove later
+# Load baseline?
+parser.add_option("-l", "--load", dest="LOAD", default="", help="Load baseline trained models")
+
+(options,args) = parser.parse_args()
+
+MODE = int(options.MODE)
+OUTDIR = str(options.OUTDIR)
+COMMENT = str(options.COMMENT)
+CSVFILE = str(options.CSVFILE)
+PS = options.ps
+SETS = int(options.SETS)
+
+GPU = options.GPU
+
+print("Input parameters:")
+if options.RANDOM != False:
+    RANDOM = True
+    COMMENT += " RP"
+    print("Random partition mode set")
+    
+if options.RP == True:
+    COMMENT += " unitrp"
+    print("Random project unit on")
+
+if options.SETS != int(1):
+    COMMENT += " S:" + str(SETS)
+    print("Sets:", str(SETS))
+
+if options.MASK1 != "" and options.MASK2 != "":
+    MASK1 = int(options.MASK1)
+    MASK2 = int(options.MASK2)
+    COMMENT += " M:" + str(MASK1) + "_" + str(MASK2)
+    print("Masking in region", str(MASK1) + str(MASK2))
+    
+if options.MASK3 != "" and options.MASK4 != "":
+    MASK3 = int(options.MASK3)
+    MASK4 = int(options.MASK4)
+    COMMENT += " M2:" + str(MASK3) + "_" + str(MASK4)
+    print("Masking in region", str(MASK3) + str(MASK4))
+    
+if options.DP != 0.2:
+    COMMENT += " dp:" + str(options.DP)
+    print("Drop prob set to", str(options.DP))
+
+print("Comment:", COMMENT)
+print("Model outdir:", OUTDIR)
+print("CSV path:", CSVFILE)
+
+os.makedirs(OUTDIR, exist_ok = True)
+
+#############################
+# Load data
+#############################
+
+if options.RANDOM == "True":
+    print("Loading data by filename (randomized) partitions")
+    filelist = glob.glob("/home/ida/TCR-p-MHC/data/03_Dataset/*")
+    p0 = filelist[0:293]
+    p1 = filelist[293:586]
+    p2 = filelist[586:879]
+    p3 = filelist[879:1172]
+    p4 = filelist[1172:1464]
+    
+else:
+    print("Loading data by ordered partitions ...")
+    p0 = glob.glob("../data/train_data/*1p*")
+    p1 = glob.glob("../data/train_data/*2p*")
+    p2 = glob.glob("../data/train_data/*3p*")
+    p3 = glob.glob("../data/train_data/*4p*")
+    p4 = glob.glob("../data/train_data/*5p*")
+
+print("Partition sizes:", len(p0), len(p1), len(p2), len(p3), len(p4))
+
+#############################
+# Model Start
+#############################
+
+print("Setting up model ...")
+
+#Setting number of features
+features = list(range(0,146))
+
+#Hyperparams for CNN
+criterion = nn.CrossEntropyLoss()
+in_channel = len(features)
+n_hid = 56
+epochs = 0
+batch_size = 32
+drop_prob = 0.2
+
+#Kernel sizes
+ks0 = 1
+pad0 = int((ks0) / 2)
+ks1 = 11
+pad1 = int((ks1) / 2)
+ks2 = 9
+pad2 = int((ks2) / 2)
+ks3 = 7
+pad3 = int((ks3) / 2)
+ks4 = 7
+pad4 = int((ks4) / 2)
+ks5 = 5
+pad5 = int((ks5) / 2)
+ks6 = 3
+pad6 = int((ks6) / 2)
+ps = True
+
+#############################
+# Run model
+#############################
+
+data = [p0, p1, p2, p3, p4]
+partitions = [0, 1, 2, 3, 4]
+
+sz0 = 896
+m1, m2 = generate_weights(32, sz0, 0, GPU)
+
+batch_size = 32
+        
+print("dp:", options.DP)
+drop_prob = 0.2
+if options.DP != str(0.2):
+    print("Setting drop prob to", options.DP)
+    drop_prob = float(options.DP)
+    print("New dp:", drop_prob)            
+ps = PS #command line option for printing network sizes. Defaults to False
 
 if MODE == 1:
-    print("Mode: 1. Cross-validation")
-
-    #Cross-val function
-    data = [p0, p1, p2, p3, p4]
-    partitions = [0, 1, 2, 3, 4]
-    run = 0
-
-    sz = (896)
-    sz0 = int(896)
-    m1, m2 = generate_weights(32, sz, new = 0)
-
-    batch_size = 32
-    
-    print("dp:", options.DP)
-    drop_prob = 0.2
-    if options.DP != str(0.2):
-        print("Setting drop prob to", options.DP)
-        drop_prob = float(options.DP)
-        print("New dp:", drop_prob)
-        
-    ps = PS #command line option for printing network sizes. Defaults to False
 
     for i in partitions:
-        partitions = [0, 1, 2, 3, 4]
-        val_part = data[i]
-        partitions.remove(i)
+        valid = data[i]
+        train = [item for sublist in data[:i] + data[i+1:] for item in sublist]
+        test = valid
 
-        train_part = []
-        train_i3 = []
-        for i3 in partitions:
-            train_part += data[i3]
-            train_i3.append(i3)
-
-        train_i3 = "".join(map(str, train_i3))
-        run += 1
-        print("\nRun", run, "/ 5 ...", "Val", i, "Train", train_i3)
-
-        train = train_part
-        valid = val_part
-        test = val_part
-
+        train_str = str(partitions[:i] + partitions[i+1:]).strip('[]')
+        print("\nRun", i, "/ 5 ...", "Test", i, "Train", train_str)
 
         #Load data
         X, y, X_val, y_val, _, _ = data_generator(train, valid, test)
         X0, y0, X0_val, y0_val = X.copy(), y.copy(), X_val.copy(), y_val.copy()
-        
+            
         #Masking
         if options.MASK1 != "" and options.MASK2 != "":
             print(X.shape)
             X[:, MASK1:MASK2, 0:20] = np.zeros((X[:, MASK1:MASK2, 0:20]).shape)
             if ps: print("Masked sequence position (only AAs)", MASK1, MASK2, X.shape)
-                
+                    
         if options.MASK3 != "" and options.MASK4 != "":
             print(X.shape)
             X[:, MASK3:MASK4, 0:20] = np.zeros((X[:, MASK3:MASK4, 0:20]).shape)
             if ps: print("Masked sequence position (only AAs)", MASK3, MASK4, X.shape)
-
         #Upsample
         X, y = upsample(X, y)
 
         X = to_torch_data(X,float,torch.float32)
         y = to_torch_data(y,int,torch.int64)
-
         X0_val = to_torch_data(X0_val,float,torch.float32)
         y0_val = to_torch_data(y0_val,int,torch.int64)
 
@@ -584,35 +546,26 @@ if MODE == 1:
         train_ds = tdatautils.TensorDataset(X, y)
         valid_ds0 = tdatautils.TensorDataset(X0_val, y0_val)
         dummy_ds = tdatautils.TensorDataset(X0_val[0:2], y0_val[0:2])
-
-        #dummy_data_bunch = DataBunch.create(train_ds, dummy_ds, bs=batch_size)
         my_data_bunch = DataBunch.create(train_ds, valid_ds0, bs=batch_size)
 
         #Initialize model
-        #net = Model().cuda()
-        net = Model()
+        if GPU:
+            net = Model().cuda()
+        else:
+            net = Model()
         learn = Learner(my_data_bunch, net,
                              opt_func=torch.optim.Adam,
                              loss_func=criterion, metrics=[accuracy],
                              wd = 0.01)
-        #Hyperparms
-        cycles = SETS*4
-        epochs = SETS*4*[1]
-        
-        #Run model
-        if options.LOAD != "":
 
+        if options.LOAD != "":
             learn.load(baseline[i])
-            
-        cycles = SETS*1
-        epochs = 2*[1]+(SETS-2)*[1]
-        #multiply high LR by options.LR
-        LR = [1e-02, 1e-01, 1e-02, 1e-01, 5e-03, 5e-02, 1e-03, 1e-02] * int(options.LR) + (SETS-4)*[5e-03, 5e-02]
-        #LR = [1e-02, 1e-01, 1e-02, 1e-01, 1e-02, 1e-01, 5e-03, 5e-02]+(SETS-4)*[5e-03, 5e-02]
-        
-        
-       #filepath = simple_train(cycles = SETS*4, epochs = SETS*4*[1], LR = [1e-02, 1e-01, 1e-02, 1e-01, 1e-03, 5e-02, 1e-03, 5e-02], val_part = i, skip = False)
-        filepath = simple_train(cycles = cycles, epochs = epochs, LR = LR, val_part = i, skip = False)
+        if MODE == 1:
+            cycles = SETS
+            epochs = 2*[1]+(SETS-2)*[1]
+            #multiply high LR by options.LR
+            LR = [1e-02, 1e-01, 1e-02, 1e-01, 5e-03, 5e-02, 1e-03, 1e-02] * int(options.LR) + (SETS-4)*[5e-03, 5e-02]
+            filepath = simple_train(cycles = cycles, epochs = epochs, LR = LR, val_part = i, skip = False)
 
         #Stats
         learn = Learner(my_data_bunch,
@@ -621,217 +574,11 @@ if MODE == 1:
                              loss_func=criterion, metrics=[accuracy],
                              callback_fns=[partial(EarlyStoppingCallback, min_delta=0.01, patience=3)],
                              wd = 0.01)
-        
-        print("Model saved:\n", filepath)
-        learn.load(filepath)
-        stats_to_csv(comment = COMMENT, val_part = i, LR=LR, ds = DatasetType.Valid)
-    
-    #Print final performance
-    df = csvfile(5)
-    print("\n", (df.columns[4:13].format()))
-    for i in range(5):
-        row = df.iloc[i][4:13].values
-        row = [round(x, 3) for x in row]
-        print(row)
-        
-#############################
-# Run model using early-stopping
-#############################
-
-def early_stop2(cycles=16, LR=16*[1e-02, 1e-01, 5e-03, 5e-02], epochs=16*[1],
-                         val_part = int(4), test_part = int(),
-                         comment="", outdir = OUTDIR):
-    train_part=[0, 1, 2, 3, 4]
-    LR = pd.Series(LR)
-    now = time.time()
-    stat_df = pd.DataFrame(columns=["Correct", "AUC", "MCC", "F1", "AVP", "TPR", "TNR", "Prec", "Rec", "Confusion"])
-    
-    #Create outidr
-    os.makedirs(outdir, exist_ok = True)
-    os.makedirs(outdir+"/saved/", exist_ok = True)
-    
-    no_improv = 0
-    best = 0
-    for i in range(0, cycles):  
-        print("Cycle:", i+1, "/", cycles, "LR:", LR[i*2], "->", LR[(i*2)+1])
-        
-        #Train model
-        now = time.time()
-        learn.fit_one_cycle(epochs[i], max_lr=slice(None, LR[i*2], LR[(i*2)+1]), wd = 0.01)
-        if i == 0:
-            print("Saving initial model ...", outdir+"temp_model")
-            learn.save(outdir + "temp_model")
-        
-        if i >= 1:
-            #Check performance best vs now
-            stats = pd.DataFrame(record_stats()[0:10]).transpose()
-            stats.columns = ["Correct", "AUC", "MCC", "F1", "AVP", "TPR", "TNR", "Prec", "Rec", "Confusion"]
-            stat_df = stat_df.append(stats)
             
-            #df = pd.read_csv("/home/maghoi/main/data/Stats1.csv")
-            #before = float(stat_df.iloc[len(stat_df)-(2)]["MCC"])
-            now = float(stat_df.iloc[len(stat_df)-(1)]["MCC"])
-            print("Best;", best, "vs", "now:", now)
-
-            #Load model before if performance worse
-            if now > best:
-                print("MCC higher, saving ...")
-                learn.save(outdir + "temp_model")
-                no_improv = 0
-                best = float(now)
-                
-            else:
-                no_improv += 1
-                if no_improv >= 3:
-                    print("No improvement 5x, set LR to 0.1 -> 0.5 for one  epoch")
-                    LR[(i*2)+2] = 0.01
-                    LR[(i*2)+3] = 0.1
-                    LR[(i*2)+4] = 0.01
-                    LR[(i*2)+5] = 0.1
-                    no_improv -= 2
-   
-    #Save model
-    train_part.remove(val_part)
-    if test_part == int():
-        test_part = "0"
-    else:
-        train_part.remove(test_part)
-
-    test_str = str(test_part)
-    val_str = str(val_part)
-    train_str = "".join(map(str, train_part))
-
-    filepath = outdir+"saved/" + "T" + test_str + "V" + val_str + "_" + train_str
-    learn.load(outdir+"temp_model")
-    learn.save(filepath)
-    
-    filelist = glob.glob(outdir + "temp_model*")
-    if filelist:
-        print("Removing", filelist[0])
-        os.remove(filelist[0])
-    else:
-        print("No file found????")
-    
-    return(filepath)
-    print("Done")
-
-
-if MODE == 5:
-    print("Mode: 5. Early-stopping")
-
-    #Cross-val function
-    data = [p0, p1, p2, p3, p4]
-    partitions = [0, 1, 2, 3, 4]
-    run = 0
-    sz = (896)
-    sz0 = int(896)
-    m1, m2 = generate_weights(32, sz, new = 0)
-    batch_size = 32
-    #stats_df = pd.DataFrame(columns = (["ACC", "AUC", "MCC", "F1", "AVP", "TPR", "TNR", "Prec", "Rec", "Confusion matrix"]))
-    
-    print("dp:", options.DP)
-    drop_prob = 0.2
-    if options.DP != str(0.2):
-        print("Setting drop prob to", options.DP)
-        drop_prob = float(options.DP)
-        print("New dp:", drop_prob)
-        
-    ps = PS #command line option for printing network sizes. Defaults to False
-
-    for i in partitions:
-
-        partitions = [0, 1, 2, 3, 4]
-        val_part = data[i]
-        partitions.remove(i)
-
-        train_part = []
-        train_i3 = []
-        for i3 in partitions:
-            train_part += data[i3]
-            train_i3.append(i3)
-
-        train_i3 = "".join(map(str, train_i3))
-        run += 1
-        print("\nRun", run, "/ 5 ...", "Val", i, "Train", train_i3)
-
-        train = train_part
-        valid = val_part
-        test = val_part
-
-        #Load data
-        X, y, X_val, y_val, _, _ = data_generator(train, valid, test)
-        X0, y0, X0_val, y0_val = X.copy(), y.copy(), X_val.copy(), y_val.copy()
-        
-        #Masking
-        if options.MASK1 != "" and options.MASK2 != "":
-            print(X.shape)
-            X[:, MASK1:MASK2, 0:20] = np.zeros((X[:, MASK1:MASK2, 0:20]).shape)
-            if ps: print("Masked sequence position (only AAs)", MASK1, MASK2, X.shape)
-                
-        if options.MASK3 != "" and options.MASK4 != "":
-            print(X.shape)
-            X[:, MASK3:MASK4, 0:20] = np.zeros((X[:, MASK3:MASK4, 0:20]).shape)
-            if ps: print("Masked sequence position (only AAs)", MASK3, MASK4, X.shape)
-
-        #Upsample
-        X, y = upsample(X, y)
-
-        X = to_torch_data(X,float,torch.float32)
-        y = to_torch_data(y,int,torch.int64)
-
-        X0_val = to_torch_data(X0_val,float,torch.float32)
-        y0_val = to_torch_data(y0_val,int,torch.int64)
-
-        #Create Tensor Dataset and FastAI databunch
-        train_ds = tdatautils.TensorDataset(X, y)
-        valid_ds0 = tdatautils.TensorDataset(X0_val, y0_val)
-        dummy_ds = tdatautils.TensorDataset(X0_val[0:2], y0_val[0:2])
-
-        #dummy_data_bunch = DataBunch.create(train_ds, dummy_ds, bs=batch_size)
-        my_data_bunch = DataBunch.create(train_ds, valid_ds0, bs=batch_size)
-
-        #Initialize model
-#        net = Model().cuda()
-        net = Model()
-        learn = Learner(my_data_bunch, net,
-                             opt_func=torch.optim.Adam,
-                             loss_func=criterion, metrics=[accuracy],
-                             wd = 0.01)
-        #Hyperparms
-        cycles = SETS
-        epochs = SETS*[1]
-        LR = [1e-02, 1e-01, 5e-03, 5e-02]*SETS
-        
-        #Run model
-        if options.LOAD != "":
-            learn.load(baseline[i])
-        filepath = early_stop2(cycles = cycles, epochs = epochs, LR = LR,
-                               val_part = i,
-                              outdir = OUTDIR)
-
-        #Stats
-        learn = Learner(my_data_bunch,
-                             net,
-                             opt_func=torch.optim.Adam,
-                             loss_func=criterion, metrics=[accuracy],
-                             callback_fns=[partial(EarlyStoppingCallback, min_delta=0.01, patience=3)],
-                             wd = 0.01)
-        
         print("Model saved:\n", filepath)
         learn.load(filepath)
         stats_to_csv(comment = COMMENT, val_part = i, LR=LR, ds = DatasetType.Valid)
-        #stat_df.columns = stats_df.columns[0:9]
-        #stats_df.append(stat_df)
-    
-    #Print final performance
-    #print("\n", (stats_df.columns.format()))
-    #print(stat_df)
-    #print(stats_df)
-    #for i in range(5):
-    #    row = stats_df.iloc[i]
-    #    #row = [round(x, 3) for x in row]
-    #    print(row)
-      
+
 #############################
 # Run model using nested-cross-val
 #############################
@@ -839,27 +586,13 @@ if MODE == 5:
 if MODE == 2:
     print("Mode: 2. Nested-cross validation")
     
-    # Nested cross val function
-    data = [p0, p1, p2, p3, p4]
-    partitions = [0, 1, 2, 3, 4]
-    run = 0
-    
-    sz = (896)
-    sz0 = int(896)
-    m1, m2 = generate_weights(32, sz, new = 0)
-
-    batch_size = 32
-    drop_prob = 0.2
-    ps = PS #command line option for printing network sizes. Defaults to False
-
     for i in partitions:
-        partitions = [0, 1, 2, 3, 4]
-        test_part = data[i]
+        test = data[i]
         partitions.remove(i)
 
         for i2 in partitions:
             remaining = partitions.copy()
-            val_part = data[i2]
+            valid = data[i2]
             remaining.remove(i2)
 
             train = []
@@ -871,11 +604,6 @@ if MODE == 2:
             train_i3 = "".join(map(str, train_i3))
             run += 1
             print(run, "/ 20", " ... Test", i, "Val", i2, "Train", train_i3)
-            #print("Test", test_part, "Val", val_part, "Train", train)
-
-            train = train
-            valid = val_part
-            test = test_part
 
             #Load data
             Xt,yt, Xt_val, yt_val, Xt_test, yt_test = data_generator(train, valid, test)
@@ -897,14 +625,16 @@ if MODE == 2:
 
             #Run model
             my_data_bunch = DataBunch.create(train_ds, valid_ds0, test_ds0, bs=batch_size)
-            #net = Model().cuda()
-            net = Model()
+            if GPU:
+                net = Model().cuda()
+            else:
+                net = Model()
             learn = Learner(my_data_bunch,
-                                 net,
-                                 opt_func=torch.optim.Adam,
-                                 loss_func=criterion, metrics=[accuracy],
-                                 callback_fns=[partial(EarlyStoppingCallback, min_delta=0.01, patience=3)],
-                                 wd = 0.01)
+                            net,
+                            opt_func=torch.optim.Adam,
+                            loss_func=criterion, metrics=[accuracy],
+                            callback_fns=[partial(EarlyStoppingCallback, min_delta=0.01, patience=3)],
+                            wd = 0.01)
 
             #Stats
             filepath = simple_train(cycles = 4, epochs = 4*[1], LR = [1e-02, 1e-01, 1e-02, 1e-01, 1e-03, 5e-02, 1e-03, 5e-02], val_part = i2, test_part = i)
@@ -919,12 +649,9 @@ if MODE == 2:
 # Calculate nested cross-val performance from saved models
 #############################
 # Runs automatically if nested-cross val mode is set (MODE == 2)
-if MODE == 3 or MODE == 2:
-    MODE = 3
+if MODE == 2:
     
-    print("3. Checking nested-cross val test sets")
-    data = [p0, p1, p2, p3, p4]
-    partitions = [0, 1, 2, 3, 4]
+    print("2. Checking nested-cross val test sets")
 
     #Check right number of partitions
     saved_models = glob.glob(OUTDIR)
@@ -933,15 +660,7 @@ if MODE == 3 or MODE == 2:
     preds = []
     names = []
     targets = []
-    
-    sz = (896)
-    sz0 = int(896)
-    m1, m2 = generate_weights(32, sz, new = 0)
 
-    batch_size = 32
-    drop_prob = 0.2
-    ps = PS #command line option for printing network sizes. Defaults to False
-    
     for filename in saved_models:
         test_part = int(re.search('.*T(\d).*', filename).group(1))
         val_part = int(re.search('.*V(\d)_', filename).group(1))
@@ -963,8 +682,10 @@ if MODE == 3 or MODE == 2:
 
         #Setup model
         my_data_bunch = DataBunch.create(train_ds, valid_ds, bs=batch_size)
-        #net = Model().cuda()
-        net = Model()
+        if GPU:
+            net = Model().cuda()
+        else:
+            net = Model()
         learn = Learner(my_data_bunch,
                              net,
                              opt_func=torch.optim.Adam,
@@ -974,8 +695,6 @@ if MODE == 3 or MODE == 2:
 
         #Stats
         learn.load(filepath)
-        #stats_to_csv(comment = "T" + str(test_part) + "V" + str(val_part) + COMMENT,
-        #val_part = val_part, ds = DatasetType.Valid)
 
         #Extract predictions
         learn_preds = learn.get_preds()
@@ -995,7 +714,6 @@ if MODE == 3 or MODE == 2:
     pd.to_pickle(preds, "preds")
     pd.to_pickle(targets, "targets")
     
-if MODE == 3 or MODE == 4:
     print("Checking values from previously saved models")
     #Check predictions
 
