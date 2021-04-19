@@ -200,7 +200,8 @@ class energy_calculation:
         # Rosetta_per_res_indiv_energies_complex (20), Rosetta_per_res_indiv_energies_pmhc/Rosetta_per_res_indiv_energies_tcr (20)
         # foldx_MP (1), foldx_MA (1), foldx_MB (1), foldx_PA (1), foldx_PB (1), foldx_AB (1),
         # Rosetta_total_energy_complex (24), Rosetta_total_energy_tcr (24), Rosetta_total_energy_pmhc (24),
-        # Positive/negative (1), origin (10X, swapped, origin) (3)
+        # Positive/negative (1), origin (10X, swapped, posi) (3) WAS REMOVED LATER
+        # Total: 142
 
         output_array = np.zeros(shape=(self.total_length, 146))
         k1 = 0  # chain

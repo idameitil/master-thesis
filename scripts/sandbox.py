@@ -1,14 +1,10 @@
+import glob
 import numpy as np
-import sys
-import subprocess
-import os
 
-def early_stopping():
-
-    for partition in partitions:
-        validation = partition
-        train = partitions.remove(partition)
-        for i in range(4):
-            # train on train[i]
-            # test on validation
-
+files = glob.glob("./data/train_data/*")
+for file in files:
+    arr = np.load(file)
+    new_arr = arr[:,:142]
+    filename = file.replace("./data/train_data/", "")
+    outpath = "./data/train_data_new/" + filename
+    np.save(outpath, new_arr)

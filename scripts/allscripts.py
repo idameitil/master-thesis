@@ -1,19 +1,9 @@
 import numpy as np
-
-#from fastai.basic_data import *
-#from fastai.basic_train import *
-#from fastai.callbacks import *
-#from fastai.data_block import *
-#from fastai.metrics import *
-#from fastai.train import *
-#from fastai.utils import *
-#from fastai.core import *
-#from fastai.gen_doc import *
-
 import torch
 import glob
 import re
-
+import math
+import sys
 from sklearn.preprocessing import Normalizer
 
 def upsample(X, y):
@@ -150,3 +140,40 @@ def data_generator(train, valid, test):
     X_val, y_val = x[ix_val : ix_test], y[ix_val : ix_test]
     X_test, y_test = x[ix_test : ], y[ix_test : ]
     return X_train, y_train, X_val, y_val, X_test, y_test
+
+def pad(filename):
+    
+    # Load array
+    original_array = np.load(filename)
+    # Divide into pMHC and TCR
+    pmhc = np.concatenate((original_array[original_array[:,20] == 1], original_array[original_array[:,21] == 1]))
+    tcr = np.concatenate((original_array[original_array[:,22] == 1], original_array[original_array[:,23] == 1]))
+    # Padding pMHC
+    padding_size = (192 - pmhc.shape[0]) / 2
+    front_pad = np.zeros((math.floor(padding_size), pmhc.shape[1]))
+    end_pad = np.zeros((math.ceil(padding_size), pmhc.shape[1]))
+    pmhc_padded = np.concatenate((front_pad, pmhc, end_pad))
+    # Padding TCR
+    padding_size = (228 - tcr.shape[0]) / 2
+    front_pad = np.zeros((math.floor(padding_size), tcr.shape[1]))
+    end_pad = np.zeros((math.ceil(padding_size), tcr.shape[1]))
+    tcr_padded = np.concatenate((front_pad, tcr, end_pad))
+    # Concatanate pMHC and TCR
+    final_array = np.concatenate((pmhc_padded, tcr_padded))
+    return final_array
+
+def load_data(filelist):
+    padded_length = 192+228
+    X = np.zeros(shape = (len(filelist), padded_length, 142))
+    y = np.zeros(shape = len(filelist))
+    for i in range(len(filelist)):
+        filename = filelist[i]
+        final_array = pad(filename)
+        X[i] = final_array
+        r = re.search(r'pos', filename)
+        if r:
+            y[i] = 1
+        else:
+            y[i] = 0
+
+    return X, y
