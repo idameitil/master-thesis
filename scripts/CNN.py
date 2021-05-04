@@ -503,7 +503,6 @@ partitions = [0, 1, 2, 3, 4]
 
 sz0 = 896
 m1, m2 = generate_weights(32, sz0, 0, GPU)
-batch_size = 32
 
 print("dp:", options.DP)
 drop_prob = 0.2

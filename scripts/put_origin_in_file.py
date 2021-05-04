@@ -1,5 +1,5 @@
-infile = open("/home/ida/master-thesis/data/all_data_final.csv")
-outfile = open("/home/ida/master-thesis/data/all_data_final_origin.csv", "w")
+infile = open("/home/ida/master-thesis/data/temporary_data/all_data_numbered.csv")
+outfile = open("/home/ida/master-thesis/data/temporary_data/all_data_numbered_origin.csv", "w")
 
 tenX = True
 swapped = False
