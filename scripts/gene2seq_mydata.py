@@ -1,59 +1,55 @@
 
 __requires__ = 'bcr-models==0.0.0'
-import re
-import sys
-import os
-import pandas
 import bcr_models as bcr
-import bcr_models.utils
-import bcr_models.canonical_structures
-
-from pprint import pprint
 import re
 import csv
-
 from Bio import SeqIO
-import argparse
 
-filein= "/home/ida/master-thesis/data/all_data_numbered.csv"
+##################################################
+### Make dictionary of TCR genes and sequences ###
+##################################################
 
-genes={}
-gene_sequences = SeqIO.parse(open('/home/ida/master-thesis/data/TCR_genes.fasta'),'fasta')
-
+gene_sequences = SeqIO.parse(open('TCR_genes.fasta'),'fasta')
+genes = {}
 for fasta in gene_sequences:
     name, sequence = fasta.id, str(fasta.seq)
-    rege=re.match(r'TR(.)(.)0*(\d+)([^\|]+)', name)
+    rege = re.match(r'TR(.)(.)0*(\d+)([^\|]+)', name)
     if (rege):
-        actg="1"
-        acta="1"
-        acti=rege.group(1)
-        actt=rege.group(2)
-        actf=rege.group(3)
-        more=rege.group(4)
-        rege2=re.search(r'\-0*(\d+)', more)
+        actg = "1"
+        acta = "1"
+        acti = rege.group(1)
+        actt = rege.group(2)
+        actf = rege.group(3)
+        more = rege.group(4)
+        rege2 = re.search(r'\-0*(\d+)', more)
         if (rege2):
-            actg=rege2.group(1)
-        rege2=re.search(r'\*0*(\d+)', more)
+            actg = rege2.group(1)
+        rege2 = re.search(r'\*0*(\d+)', more)
         if (rege2):
-            acta=rege2.group(1)
-        genes[(acti,actt,actf,actg,acta)]=sequence
+            acta = rege2.group(1)
+        genes[(acti, actt, actf, actg, acta)] = sequence
     else:
-        print("Error. Could not understand name in database file:" + name)
+        print("Error. Could not understand gene name in database file:" + name)
+
+###############################################
+### Retrieve full sequences for input file ###
+###############################################
 
 hmms = bcr.db.builtin_hmms()
 template_db = bcr.db.BuiltinTemplateDatabase()
 pdb_db = bcr.db.BuiltinPDBDatabase()
-#csdb = bcr.db.BuiltinCsDatabase()
-sample_class={}
-sample_memory={}
 
 count_success = 0
 error_1, error_2, error_3 = 0, 0, 0
 
-outfile = open("/home/ida/master-thesis/data/all_data_final.csv", "w")
+input_filename = sys.argv[1]
+#ID,CDR3a,CDR3b,v_gene_alpha,j_gene_alpha,v_gene_beta,j_gene_beta
+output_filename = sys.argv[2]
+outfile = open(output_filename, "w")
 outfile.write("#ID,TCRa_sequence,TCRb_sequence,peptide,partition,binder\n")
-
-with open( filein, mode='r') as infile:
+print(inputfilename)
+print(output_filename)
+with open(input_filename, mode='r') as infile:
     reader = csv.reader(infile)
     for rows in reader:
         if rows[0].startswith("#"):
