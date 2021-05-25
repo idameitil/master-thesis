@@ -76,14 +76,18 @@ meltData2 <- readRDS(file = "global_energies.rds")
 # summary
 summary(meltData)
 
+
 # Make boxplots all features
 for (feature in unique(meltData$feature)){
-  pdf(paste("/home/ida/master-thesis/results/boxplots/", feature, ".pdf", sep=""))
+  pdf(paste("/home/ida/master-thesis/results/boxplots/", feature, ".pdf", sep=""), width = 5, height = 5)
   print(ggplot(meltData[meltData$feature==feature,], aes(x = group, y = value, fill = group)) +
     geom_boxplot() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
     geom_jitter(color="darkgrey", size=0.001, alpha=0.9) +
-    ggtitle(feature))
+    xlab("") +
+    theme(legend.position = "none") +
+    scale_x_discrete(labels=c("Positives", "Swapped negatives", "10X negatives"))
+    )
   dev.off()
 }
 
