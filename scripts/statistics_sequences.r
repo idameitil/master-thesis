@@ -48,18 +48,20 @@ ggplot(data = data, aes(x = v_beta_vdjdb_name, fill = origin)) +
 dev.off()
 
 ### HISTOGRAMS OF LOOP LENGTH ###
-pdf("/home/ida/master-thesis/results/0503_sequence_statistics/loop_length_cdr3a.pdf", height = 4)
+data$binder = as.factor(data$binder)
+levels(data$binder) <- c("Negatives", "Positives")
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/loop_length_cdr3a_binder.pdf", height = 2, width = 3.5)
 ggplot(data, aes(x = cdr3a_loop_length)) +
   geom_histogram(binwidth = 0.5) +
-  facet_grid(cols = vars(origin)) +
-  xlab("Loop length of CDRa")
+  facet_grid(cols = vars(binder)) +
+  xlab("Loop length of CDR3a")
 dev.off()
 
-pdf("/home/ida/master-thesis/results/0503_sequence_statistics/loop_length_cdr3b.pdf", height = 4)
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/loop_length_cdr3b_binder.pdf", height = 2, width = 3.5)
 ggplot(data, aes(x = cdr3b_loop_length)) +
   geom_histogram(binwidth = 0.5) +
-  facet_grid(cols = vars(origin)) +
-  xlab("Loop length of CDRb")
+  facet_grid(cols = vars(binder)) +
+  xlab("Loop length of CDR3b")
 dev.off()
 
 ### BARPLOT OF PEPTIDES ###
@@ -67,4 +69,46 @@ pdf("/home/ida/master-thesis/results/0503_sequence_statistics/peptide_barplot.pd
 ggplot(data, aes(x = peptide, fill = origin)) +
   geom_bar(position = "dodge") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+dev.off()
+
+### FOR EACH PEPTIDE DISTRIBUTION OF GERM LINES ###
+
+library(RColorBrewer)
+library(Polychrome)
+P18 = unname(createPalette(18,  c("#ff0000", "#00ff00", "#0000ff")))
+n <- 18
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+colors = sample(col_vector, n)
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/j_gene_alpha_per_peptide.pdf", width = 10)
+ggplot(data = data[data$binder==1,], aes(x = j_alpha_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("J gene TCRa") +
+  scale_fill_manual(values = P18)
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/v_gene_alpha_per_peptide.pdf", width = 10)
+ggplot(data = data[data$binder==1,], aes(x = v_alpha_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("V gene TCRa") +
+  scale_fill_manual(values = P18)
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/j_gene_beta_per_peptide.pdf", width = 10)
+ggplot(data = data[data$binder==1,], aes(x = j_beta_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("J gene TCRb") +
+  scale_fill_manual(values = P18)
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/v_gene_beta_per_peptide.pdf", width = 10)
+ggplot(data = data[data$binder==1,], aes(x = v_beta_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("V gene TCRb") +
+  scale_fill_manual(values = P18)
 dev.off()
