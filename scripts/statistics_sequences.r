@@ -2,6 +2,8 @@ library(stringr)
 library(dplyr)
 library(reshape2)
 library(ggplot2)
+library(RColorBrewer)
+
 
 ### LOAD DATA ###
 data <- read.csv("/home/ida/master-thesis/data/temporary_data/all_data_numbered_origin_vdjdbnames.csv")
@@ -16,7 +18,11 @@ data$cdr3b_loop_length <- as.numeric(lapply(data$CDR3b, str_length))
 unique(data$peptide)
 length(unique(data$peptide))
 length(unique(data$CDR3a))
+length(unique(data[data$binder==1, "CDR3a"]))
+length(unique(data[data$binder==0, "CDR3a"]))
 length(unique(data$CDR3b))
+length(unique(data[data$binder==1, "CDR3b"]))
+length(unique(data[data$binder==0, "CDR3b"]))
 
 ### BARPLOTS OF GERM LINES ###
 pdf("/home/ida/master-thesis/results/0503_sequence_statistics/j_gene_alpha.pdf", width = 10)
@@ -65,10 +71,27 @@ ggplot(data, aes(x = cdr3b_loop_length)) +
 dev.off()
 
 ### BARPLOT OF PEPTIDES ###
-pdf("/home/ida/master-thesis/results/0503_sequence_statistics/peptide_barplot.pdf", height = 5)
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/peptide_barplot.pdf", height = 4)
 ggplot(data, aes(x = peptide, fill = origin)) +
   geom_bar(position = "dodge") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+dev.off()
+
+data$partition <- as.factor(data$partition)
+data$binder <- as.factor(data$binder)
+
+data[data$binder=="Positive" & data$peptide=="FLYALALLL","j_gene_alpha"]
+
+# Per partition
+partition_colors <- brewer.pal(5,"Set1")
+
+levels(data$binder) <- c("Negative", "Positive")
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/peptide_barplot_partitions.pdf", height = 5)
+ggplot(data, aes(x = peptide, fill = partition)) +
+  geom_bar(position = "dodge") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  facet_grid(rows = vars(binder), scales = "free") +
+  scale_fill_manual(values = partition_colors)
 dev.off()
 
 ### FOR EACH PEPTIDE DISTRIBUTION OF GERM LINES ###
@@ -112,3 +135,50 @@ ggplot(data = data[data$binder==1,], aes(x = v_beta_vdjdb_name, fill = peptide))
   xlab("V gene TCRb") +
   scale_fill_manual(values = P18)
 dev.off()
+
+### GERMLINE BARPLOTS POSITIVE/NEGATIVE AND PER PEPTIDE
+data$binder <- as.factor(data$binder)
+levels(data$binder) <- c("Negatives", "Positives")
+
+P18 = unname(createPalette(16,  c("#ff0000", "#00ff00", "#0000ff")))
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/j_gene_alpha_all.pdf", width = 10, height = 6)
+ggplot(data = data[data$peptide != "ILKEPVHGV" & data$peptide != "CLGGLLTMV",], 
+       aes(x = j_alpha_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("J gene TCRa") +
+  scale_fill_manual(values = P18) +
+  facet_grid(rows = "binder", scales = "free")
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/v_gene_alpha_all.pdf", width = 10, height = 6)
+ggplot(data = data[data$peptide != "ILKEPVHGV" & data$peptide != "CLGGLLTMV",], 
+       aes(x = v_alpha_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("V gene TCRa") +
+  scale_fill_manual(values = P18) +
+  facet_grid(rows = "binder", scales = "free")
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/j_gene_beta_all.pdf", width = 10, height = 6)
+ggplot(data = data[data$peptide != "ILKEPVHGV" & data$peptide != "CLGGLLTMV",], 
+       aes(x = j_beta_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("J gene TCRb") +
+  scale_fill_manual(values = P18) +
+  facet_grid(rows = "binder", scales = "free")
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/v_gene_beta_all.pdf", width = 10, height = 6)
+ggplot(data = data[data$peptide != "ILKEPVHGV" & data$peptide != "CLGGLLTMV",], 
+       aes(x = v_beta_vdjdb_name, fill = peptide)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  xlab("V gene TCRb") +
+  scale_fill_manual(values = P18) +
+    facet_grid(rows = "binder", scales = "free")
+dev.off()
+

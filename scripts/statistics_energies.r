@@ -61,7 +61,36 @@ rownames(global_features_df) <- rownames_vector
 
 global_features_numeric <- mutate_all(global_features_df[,-79], function(x) as.numeric(as.character(x)))
 
+delta_total <- (global_features_final[,"pmhc_total_score"] + 
+  global_features_final[,"tcr_total_score"])/2 - 
+  global_features_final[,"complex_total_score"]
+delta_fa_atr <- (global_features_final[,"pmhc_fa_atr"] + 
+                  global_features_final[,"tcr_fa_atr"])/2 - 
+  global_features_final[,"complex_fa_atr"]
+delta_fa_rep <- (global_features_final[,"pmhc_fa_rep"] + 
+                   global_features_final[,"tcr_fa_rep"])/2 - 
+  global_features_final[,"complex_fa_rep"]
+delta_fa_elec <- (global_features_final[,"pmhc_fa_elec"] + 
+                   global_features_final[,"tcr_fa_elec"])/2 - 
+  global_features_final[,"complex_fa_elec"]
+delta_p_aa_pp <- (global_features_final[,"pmhc_p_aa_pp"] + 
+                    global_features_final[,"tcr_p_aa_pp"])/2 - 
+  global_features_final[,"complex_p_aa_pp"]
+delta_fa_dun <- (global_features_final[,"pmhc_fa_dun"] + 
+                    global_features_final[,"tcr_fa_dun"])/2 - 
+  global_features_final[,"complex_fa_dun"]
+delta_fa_sol <- (global_features_final[,"pmhc_fa_sol"] + 
+                    global_features_final[,"tcr_fa_sol"])/2 - 
+  global_features_final[,"complex_fa_sol"]
+
 global_features_final <- cbind(global_features_numeric, factor(global_features_df[,- (1:78)]))
+fold_x <- global_features_final[,c("foldx_MP","foldx_MA","foldx_MB",
+                                           "foldx_PA","foldx_PB","foldx_AB")]
+selected_features <- cbind(fold_x, delta_total, delta_fa_atr, delta_fa_rep,
+                           delta_fa_sol, delta_fa_elec, delta_fa_dun, delta_p_aa_pp,
+                           global_features_df$group)
+saveRDS(selected_features, file = "selected_energy_terms.rds")
+
 summary(global_features_final)
 
 meltData <- melt(global_features_final)
