@@ -195,7 +195,7 @@ def train(net, optimizer, train_ldr, val_ldr, test_ldr, X_valid):
                 val_loss += val_batch_loss.detach()
 
             valid_losses.append(val_loss / len(val_ldr.dataset))
-            print("\nEpoch:", epoch+1)
+            print("Epoch:", epoch+1)
 
             train_acc_cur = accuracy_score(train_targs, train_preds)  
             valid_acc_cur = accuracy_score(val_targs, val_preds) 
@@ -339,7 +339,7 @@ csv_file = open(csv_filename, "w")
 header = "#Comment,AUC,MCC,Accuracy,Precision,Recall,f1_score,TN,FP,FN,TP,count\n"
 csv_file.write(header)
 
-for i in range(len(peptides)):
+for i in range(0, 14):
 
     # Skip peptides that have no positives
     if peptides[i] == "ILKEPVHGV" or peptides[i] == "CLGGLLTMV":
@@ -405,6 +405,7 @@ for i in range(len(peptides)):
 
 csv_file.close()
 
+sys.exit()
     
 ##############################################
 ### Performance on nested cross-validation ###
