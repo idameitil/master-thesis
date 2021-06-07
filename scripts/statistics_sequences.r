@@ -24,6 +24,17 @@ length(unique(data$CDR3b))
 length(unique(data[data$binder==1, "CDR3b"]))
 length(unique(data[data$binder==0, "CDR3b"]))
 
+N <- nrow(data)
+
+n_gilgfvftl <- nrow(data[data$peptide=="GILGFVFTL",])
+percent_gilfvftl <- n_gilgfvftl/N
+
+n_GLCTLVAML <- nrow(data[data$peptide=="GLCTLVAML",])
+percent_GLCTLVAML <- n_GLCTLVAML/N
+
+n_NLVPMVATV <- nrow(data[data$peptide=="NLVPMVATV",])
+percent_NLVPMVATV <- n_NLVPMVATV/N
+
 ### BARPLOTS OF GERM LINES ###
 pdf("/home/ida/master-thesis/results/0503_sequence_statistics/j_gene_alpha.pdf", width = 10)
 ggplot(data = data, aes(x = j_alpha_vdjdb_name, fill = origin)) +
@@ -80,8 +91,6 @@ dev.off()
 data$partition <- as.factor(data$partition)
 data$binder <- as.factor(data$binder)
 
-data[data$binder=="Positive" & data$peptide=="FLYALALLL","j_gene_alpha"]
-
 # Per partition
 partition_colors <- brewer.pal(5,"Set1")
 
@@ -92,6 +101,43 @@ ggplot(data, aes(x = peptide, fill = partition)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   facet_grid(rows = vars(binder), scales = "free") +
   scale_fill_manual(values = partition_colors)
+dev.off()
+
+### GERM LINES PER PARTITION ###
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/V_alpha_partitions.pdf", height = 4)
+ggplot(data, aes(x = v_gene_alpha)) +
+  geom_bar(position = "dodge", fill = "grey") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 5)) +
+  facet_grid(rows = vars(partition), scales = "free") +
+  scale_fill_manual(values = partition_colors) +
+  xlab("V gene alpha")
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/J_alpha_partitions.pdf", height = 4)
+ggplot(data, aes(x = j_gene_alpha)) +
+  geom_bar(position = "dodge", fill = "grey") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 5)) +
+  facet_grid(rows = vars(partition), scales = "free") +
+  scale_fill_manual(values = partition_colors) +
+  xlab("J gene alpha")
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/V_beta_partitions.pdf", height = 4)
+ggplot(data, aes(x = v_gene_beta)) +
+  geom_bar(position = "dodge", fill = "grey") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 5)) +
+  facet_grid(rows = vars(partition), scales = "free") +
+  scale_fill_manual(values = partition_colors) +
+  xlab("V gene beta")
+dev.off()
+
+pdf("/home/ida/master-thesis/results/0503_sequence_statistics/J_beta_partitions.pdf", height = 4)
+ggplot(data, aes(x = j_gene_beta)) +
+  geom_bar(position = "dodge", fill = "grey") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 6)) +
+  facet_grid(rows = vars(partition), scales = "free") +
+  scale_fill_manual(values = partition_colors) +
+  xlab("J gene beta")
 dev.off()
 
 ### FOR EACH PEPTIDE DISTRIBUTION OF GERM LINES ###

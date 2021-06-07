@@ -33,10 +33,16 @@ colnames(energies_named) <- c("Peptide", "AUC", "MCC", "Accuracy", "Precision", 
 
 all_data <- rbind(all_named, seq_named, energies_named)
 
+feature_colors <- brewer.pal(3, "Paired")
+
 pdf("/home/ida/master-thesis/results/leave_one_out_auc.pdf", height = 4)
 ggplot(all_data, aes(x = reorder(Peptide, -count), y = AUC, fill = feature_set)) +
   geom_bar(position = "dodge", stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  geom_text(aes(label=round(AUC, 2)), vjust=-0.3, size=1.5, 
+            position = position_dodge(0.9))+
+  scale_fill_manual(name = "Features", values = feature_colors, 
+                    labels = c("Sequence and\n energy terms", "Only sequence", "Only energy terms")) +
   xlab("Peptide")
 dev.off()
 
@@ -44,5 +50,9 @@ pdf("/home/ida/master-thesis/results/leave_one_out_mcc.pdf", height = 4)
 ggplot(all_data, aes(x = reorder(Peptide, -count), y = MCC, fill = feature_set)) +
   geom_bar(position = "dodge", stat = "identity") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  geom_text(aes(label=round(MCC, 2)), vjust=-0.3, size=2, 
+            position = position_dodge(0.9))+
+  scale_fill_manual(name = "Features", values = feature_colors, 
+                    labels = c("Sequence and\n energy terms", "Only sequence", "Only energy terms")) +
   xlab("Peptide")
 dev.off()
