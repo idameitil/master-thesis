@@ -1,6 +1,0 @@
-[console_scripts]
-lyra_bench_db = bcr_models.scripts.benchmark_db:main
-lyra_bench_dir = bcr_models.scripts.benchmark_dir:main
-lyra_model = bcr_models.__main__:entry
-lyra_pdbdir2tpldb = bcr_models.scripts.pdbdir2tpldb:main
-

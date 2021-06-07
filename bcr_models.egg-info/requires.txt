@@ -1,4 +1,0 @@
-requests
-biopython>=1.63
-scikit-learn==0.15.2
-SciPy
