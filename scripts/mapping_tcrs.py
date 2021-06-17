@@ -1,6 +1,6 @@
 from pprint import pprint
 
-vdjdb_file = open("/home/ida/master-thesis/data/VDJdb_minscore0_2021-02-11.tsv", "r")
+vdjdb_file = open("data/VDJdb_minscore0_2021-02-11.tsv", "r")
 TRB_cdrs = dict()
 TRA_cdrs = dict()
 wrong_start = 0
@@ -27,8 +27,8 @@ for line in vdjdb_file:
         TRA_cdrs[cdr3_trimmed] = [V, J, cdr3_full]
 vdjdb_file.close()
 
-train_file = open("/home/ida/master-thesis/data/tcr_data/train_ab95_5x_umi0.csv", "r")
-outfile = open("/home/ida/master-thesis/results/positives.csv", "w")
+train_file = open("data/NetTCR2_data/train_ab95_5x_umi0.csv", "r")
+outfile = open("positives.csv", "w")
 outfile.write("#CDR3a,CDR3b,peptide,partition,binder,v_gene_alpha,j_gene_alpha,v_gene_beta,j_gene_beta,cdr3a_full,cdr3b_full\n")
 
 count_failed = 0
@@ -74,6 +74,7 @@ for line in train_file:
         alpha_succeded = True
     except KeyError:
         pass
+    # If previous fails, remove W if there
     if not alpha_succeded:
         if cdr3a.endswith("W") or cdr3a.endswith("F"):
             cdr3a = cdr3a[:-1]
@@ -114,21 +115,3 @@ print("Failed due to missing genes: {}".format(count_missing_genes))
 #print("failed b: " + str(failed_b))
 train_file.close()
 outfile.close()
-
-# Look up cd3a in dictionary
-# hits_a = [value for key, value in TRA_cdrs.items() if cdr3a in key]
-# if len(hits_a) == 0:
-#    count_failed += 1
-#    failed_a += 1
-#    print(cdr3a)
-# else:
-#    hits_b = [value for key, value in TRB_cdrs.items() if cdr3b in key]
-#    if len(hits_b) == 0:
-#        count_failed += 1
-#        failed_b += 1
-#        print(cdr3b + " cdr3b")
-#    else:
-#        count_succeded += 1
-# if len(hits_a) > 1:
-#    print(cdr3a, hits_a)
-#    print([key for key, value in TRA_cdrs.items() if cdr3a in key])

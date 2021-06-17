@@ -20,18 +20,19 @@ class energy_calculation:
         self.model_dir = model_dir
         self.model_ID = model_filename.replace("_model.pdb","")
         self.model_path = model_dir + model_filename
-        self.origin = "positives"
-        self.partition = "1"
+        self.origin = "negatives"
+        self.partition = "4"
         self.model_output_dir = f"/home/projects/ht3_aim/people/idamei/results/energy_calc_full_output/{self.partition}/{self.origin}/{self.model_ID}/"
-        #self.model_output_dir = f"/home/projects/ht3_aim/people/idamei/full_output_test/"
         self.numpy_output_dir = f"/home/projects/ht3_aim/people/idamei/results/energy_output_arrays/{self.partition}/{self.origin}/"
-        #self.numpy_output_dir = f"/home/projects/ht3_aim/people/idamei/numpy_output_test/"
         if self.origin == "positives":
             self.binder = 1
         else:
             self.binder = 0
 
     def pipeline(self):
+        if os.path.exists(self.numpy_output_dir + self.model_ID + ".npy"):
+            print("entry already done")
+            return None
         startstart_time = time.time()
         print("Start " + self.model_filename)
 
@@ -199,9 +200,7 @@ class energy_calculation:
         # one-hot AA (20), M (1), P (1), TCRA (1), TCRB (1)
         # Rosetta_per_res_indiv_energies_complex (20), Rosetta_per_res_indiv_energies_pmhc/Rosetta_per_res_indiv_energies_tcr (20)
         # foldx_MP (1), foldx_MA (1), foldx_MB (1), foldx_PA (1), foldx_PB (1), foldx_AB (1),
-        # Rosetta_total_energy_complex (24), Rosetta_total_energy_tcr (24), Rosetta_total_energy_pmhc (24),
-        # Positive/negative (1), origin (10X, swapped, posi) (3) WAS REMOVED LATER
-        # Total: 142
+        # Rosetta_total_energy_complex (24), Rosetta_total_energy_tcr (24), Rosetta_total_energy_pmhc (24)
 
         output_array = np.zeros(shape=(self.total_length, 146))
         k1 = 0  # chain
@@ -233,13 +232,6 @@ class energy_calculation:
                 output_array[k2, 70:94] = self.rosetta_overall_scores_complex
                 output_array[k2, 94:118] = self.rosetta_overall_scores_tcr
                 output_array[k2, 118:142] = self.rosetta_overall_scores_pmhc
-                output_array[k2, 142] = self.binder
-                if self.origin == "tenx_negatives":
-                    output_array[k2, 143:146] = np.array([1, 0, 0])
-                elif self.origin == "swapped_negatives":
-                    output_array[k2, 143:146] = np.array([0, 0, 1])
-                else:
-                    output_array[k2, 143:146] = np.array([0, 0, 1])
                 k2 += 1
                 k3 += 1
         np.save(file=self.numpy_output_dir + self.model_ID + ".npy", arr=output_array)
@@ -333,8 +325,8 @@ def worker(model_filename):
     instance = energy_calculation(model_filename, model_dir)
     instance.pipeline()
 
-origin = "positives"
-partition = "1"
+origin = "negatives"
+partition = "4"
 model_dir = f"/home/projects/ht3_aim/people/idamei/results/models/{partition}/{origin}/"
 p = subprocess.Popen(["ls", model_dir],
                      stdout=subprocess.PIPE, universal_newlines=True)
@@ -347,12 +339,12 @@ if "rotabase.txt" in models:
 #pool = mp.Pool(40)
 #pool.map(worker, [model for model in models])
 #pool.close()
+print(len(models))
+models_slice = models[1350:1550]
 
-#models_slice = models[108:118]
-#print(len(models[118:]))
-#models_slice = models[118:]
-
-models_slice = ["12528_model.pdb"]
+#pool = mp.Pool(20)
+#pool.map(worker, [model for model in models_slice])
+#pool.close()
 
 Parallel(n_jobs=20)(delayed(worker)(model) for model in models_slice)
 
