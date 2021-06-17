@@ -33,7 +33,19 @@ Number        | Feature
 119           | Rosetta total energy pMHC (constant for all residues)
 120-142       | Rosetta individual break down energy terms pMHC (constant for all residues)
 
+* _data/example_array.csv_ : Example of an entry from the dataset converted to a csv-file for inspecting the data.
+
 ## Scripts
+
+* _mapping_tcrs.py_ : Takes input file with CDR3 sequences and maps them onto VDJdb download (_data/VDJdb_minscore0_2021-02-11.tsv_) for retrieval of V and J genes. Writes output file with gene names.
+* _swap_peptides.py_ : Generates swapped negatives. For each positive, the TCR is combined with a different peptide from the dataset based on the frequencies of the peptides. This is done in a very complicated way, and it might be better to just pair it with a random peptide.
+* _TCR_gene2seq.py_ : Retrieves the full TCR sequences. Takes input file with gene names. Retrieves gene sequences from _data/TCR_genes.fasta_. Combines gene sequences with CDR3 and aligns to precompiled HMM from Lyra. Writes output file with ID and full TCRa and TCRb sequences. Requires Lyra (bcr-models).
+
+* _change_dataset_remove_channels_save_origin.py_
+* CNN_LSTM2.py
+* energy_calc_pipeline.py
+* siamese.py
+* tcrpmhcmodels.py
 
 ## Results
 
