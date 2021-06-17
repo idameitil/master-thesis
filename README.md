@@ -49,9 +49,12 @@ Number        | Feature
   * The Rosetta energy terms are extracted
   * A .npy file is created containing: One-hot encoding of sequence, one-hot encoding of chain, and energy terms
   Run in parallel. Took about 4 days to run, when using 4 cores on computerome. Sometimes fails when running many at a time, therefor I ran it in smaller parts.
-* _change_dataset_remove_channels_save_origin.py_
-* CNN_LSTM2.py
-* siamese.py
+* _pad_select_features_combine_in_one_array.py_ :  For each entry, the array is padded so they all have same length and a number of features are selected (see report). For each partition, an input file, a label file, an origin file, and a peptide file (for per-peptide performance) is created. Could be changed to pad TCRa and TCRb separately so that they can later be retrieved.
+* _CNN_LSTM.py_ : CNN-biLSTM network. Takes the padded dataset as input (_/home/projects/ht3_aim/people/idamei/data/train_data2/_). Different subsets of features and residues are specified in the "Load data" section. There are three modes:
+ * "simple_train": the model is trained on the first four partitions and with early-stopping on the fifth partition
+ * "nested_cross_val": Model is trained in a nested cross validation setup. Both total performance and per-peptide performance is written to the output csvfile
+ * "leave_one_out": For each peptide, the model is trained in a nested cross val setup, without the given peptide in the training set, and performance is calculated for the peptide.
+* siamese.py: my adaption of Magnus' siamese network to a more simple training setup.
 
 
 ## Results
