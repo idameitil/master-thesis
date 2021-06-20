@@ -4,7 +4,7 @@ Ida Meitil's master thesis - Using deep learning for improving TCR homology mode
 The written report is found in _IdaMeitil_master_thesis.pdf_ 
 
 ## Overview of how the dataset is created:
-- Starting point is CDR3a, CDR3b and peptide sequences
+- Starting point is CDR3a, CDR3b and peptide sequence for each entry
 - CDR3a and CDR3b are mapped onto VDJdb using the script _mapping_tcrs.py_ in order to find the germ lines
 - Swapped negatives are created using _swap_peptides.py_
 - The full TCR sequences are retrieved using _TCR_gene2seq.py_
@@ -14,6 +14,8 @@ The written report is found in _IdaMeitil_master_thesis.pdf_
 - The neural network is trained using _CNN_LSTM.py_
 
 ## Data
+
+The data folder contains the following files and folders:
 
 * _data/NetTCR2_data_ : Original dataset from NetTCR2 paper
 
@@ -46,6 +48,8 @@ Number        | Feature
 * _data/example_array.csv_ : Example of an entry from the dataset converted to a csv-file for inspecting the data.
 
 ## Scripts
+
+The scrips folder contains the following files:
 
 * _mapping_tcrs.py_ : Takes input file with CDR3 sequences and maps them onto VDJdb download (_data/VDJdb_minscore0_2021-02-11.tsv_) for retrieval of V and J genes. Writes output file with gene names.
 * _swap_peptides.py_ : Generates swapped negatives. For each positive, the TCR is combined with a different peptide from the dataset based on the frequencies of the peptides. This is done in a very complicated way, and it might be better to just pair it with a random peptide.
