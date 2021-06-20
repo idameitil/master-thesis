@@ -49,7 +49,7 @@ Number        | Feature
 
 ## Scripts
 
-The scrips folder contains the following files:
+The scripts folder contains the following files:
 
 * _mapping_tcrs.py_ : Takes input file with CDR3 sequences and maps them onto VDJdb download (_data/VDJdb_minscore0_2021-02-11.tsv_) for retrieval of V and J genes. Writes output file with gene names.
 * _swap_peptides.py_ : Generates swapped negatives. For each positive, the TCR is combined with a different peptide from the dataset based on the frequencies of the peptides. This is done in a very complicated way, and it might be better to just pair it with a random peptide.
@@ -68,4 +68,4 @@ The scrips folder contains the following files:
    * "simple_train": the model is trained on the first four partitions and with early-stopping on the fifth partition
    * "nested_cross_val": Model is trained in a nested cross validation setup. Both total performance and per-peptide performance is written to the output csvfile
    * "leave_one_out": For each peptide, the model is trained in a nested cross val setup, without the given peptide in the training set, and performance is calculated for the peptide.
-* siamese.py: my adaption of Magnus' siamese network to a more simple training setup.
+* _siamese.py_: my adaption of Magnus' siamese network to a more simple training setup.
