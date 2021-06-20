@@ -3,6 +3,16 @@ Ida Meitil's master thesis - Using deep learning for improving TCR homology mode
 
 The written report is found in _IdaMeitil_master_thesis.pdf_ 
 
+## Overview of how the dataset is created:
+- Starting point is CDR3a, CDR3b and peptide sequences
+- CDR3a and CDR3b are mapped onto VDJdb using the script _mapping_tcrs.py_ in order to find the germ lines
+- Swapped negatives are created using _swap_peptides.py_
+- The full TCR sequences are retrieved using _TCR_gene2seq.py_
+- All the complexes are modeled using _modeling.py_
+- Relaxation and scoring in FoldX and Rosetta and assembling the dataset is performed using _energy_calc_pipeline.py_
+- The TCR sequences are padded, the important Rosetta terms are selected and the dataset is made into one array for each partition using _pad_select_features_combine_in_one_array.py_
+- The neural network is trained using _CNN_LSTM.py_
+
 ## Data
 
 * _data/NetTCR2_data_ : Original dataset from NetTCR2 paper
@@ -55,7 +65,3 @@ Number        | Feature
    * "nested_cross_val": Model is trained in a nested cross validation setup. Both total performance and per-peptide performance is written to the output csvfile
    * "leave_one_out": For each peptide, the model is trained in a nested cross val setup, without the given peptide in the training set, and performance is calculated for the peptide.
 * siamese.py: my adaption of Magnus' siamese network to a more simple training setup.
-
-
-## Results
-
