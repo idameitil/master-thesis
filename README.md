@@ -1,7 +1,7 @@
 # master-thesis
 Ida Meitil's master thesis - Using deep learning for improving TCR homology modeling and its application to immunogenicity prediction
 
-The written report is found in _IdaMeitil_master_thesis.pdf_ 
+The written report is found in _IdaMeitil_master_thesis.pdf_ and the presentation is found in _master_ppt.pptx_.
 
 ## Overview of how the dataset is created:
 - Starting point is CDR3a, CDR3b and peptide sequence for each entry
